@@ -6,10 +6,24 @@
 
 #include <vulkan_physical_device.h>
 
+#define DESIRED_QUEUE_FAMILY_FLAGS VK_QUEUE_GRAPHICS_BIT
+
 // REQUIRES: Physical device to check
 // EFFECTS: Returns true of the device has the right queue families, false otherwise
 static bool has_valid_queue_families(VkPhysicalDevice &physical_device) {
-    return true;
+    uint32_t queue_family_count;
+    vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_count, nullptr);
+
+    std::vector<VkQueueFamilyProperties> queue_families(queue_family_count);
+    vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_count, queue_families.data());
+
+    for (VkQueueFamilyProperties queue_family : queue_families) {
+        if (queue_family.queueFlags & DESIRED_QUEUE_FAMILY_FLAGS == DESIRED_QUEUE_FAMILY_FLAGS) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 // REQUIRES: List of physical devices, physical device to be set
@@ -44,15 +58,15 @@ static void select_physical_device(std::vector<VkPhysicalDevice>& devices, VkPhy
 void setup_physical_device(VkInstance& vk_instance, VkPhysicalDevice& physical_device) {
     physical_device = VK_NULL_HANDLE;
 
-    uint32_t deviceCount;
-    vkEnumeratePhysicalDevices(vk_instance, &deviceCount, nullptr);
+    uint32_t physical_device_count;
+    vkEnumeratePhysicalDevices(vk_instance, &physical_device_count, nullptr);
 
-    if (deviceCount == 0) {
+    if (physical_device_count == 0) {
         throw std::runtime_error("setup_physical_device(): No GPUs with Vulkan support!");
     }
 
-    std::vector<VkPhysicalDevice> devices(deviceCount);
-    vkEnumeratePhysicalDevices(vk_instance, &deviceCount, devices.data());
+    std::vector<VkPhysicalDevice> devices(physical_device_count);
+    vkEnumeratePhysicalDevices(vk_instance, &physical_device_count, devices.data());
    
     select_physical_device(devices, physical_device);
 

@@ -26,10 +26,10 @@ void VulkanHandle::init_vulkan() {
     create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     create_info.pApplicationInfo = &app_info;
 
-    uint32_t glfwExtensionCount = 0;
-    const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+    uint32_t glfw_extension_count = 0;
+    const char** glfw_extensions = glfwGetRequiredInstanceExtensions(&glfw_extension_count);
 
-    std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
+    std::vector<const char*> extensions(glfw_extensions, glfw_extensions + glfw_extension_count);
     VkDebugUtilsMessengerCreateInfoEXT debug_create_info{};
     if (enable_validation_layers) {
         add_validation_layers(create_info, extensions, debug_create_info);
