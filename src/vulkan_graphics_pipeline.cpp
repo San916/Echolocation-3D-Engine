@@ -85,10 +85,10 @@ static VkPipelineInputAssemblyStateCreateInfo create_input_assembly_state_info()
     return input_assembly_create_info;
 }
 
+// MODIFIES: viewport, scissor
 // EFFECTS: Creates viewport state create info for graphics pipeline
 // Currently uses a static viewport
-static VkPipelineViewportStateCreateInfo create_viewport_state_info(VkExtent2D swap_chain_extent) {
-    VkViewport viewport{};
+static VkPipelineViewportStateCreateInfo create_viewport_state_info(VkExtent2D swap_chain_extent, VkViewport& viewport, VkRect2D& scissor) {
     viewport.x = 0.0f;
     viewport.y = 0.0f;
     viewport.width = (float) swap_chain_extent.width;
@@ -96,7 +96,6 @@ static VkPipelineViewportStateCreateInfo create_viewport_state_info(VkExtent2D s
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
 
-    VkRect2D scissor{};
     scissor.offset = {0, 0};
     scissor.extent = swap_chain_extent;
 
@@ -137,18 +136,18 @@ static VkPipelineMultisampleStateCreateInfo create_multisample_state_info() {
     return multisample_state_create_info;
 }
 
+// MODIFIES: color_blend_attachment
 // EFFECTS: Creates color blend state create info for graphics pipeline
-static VkPipelineColorBlendStateCreateInfo create_color_blend_state_info() {
-    VkPipelineColorBlendAttachmentState color_blend_attachment_state_create_info{};
-    color_blend_attachment_state_create_info.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    color_blend_attachment_state_create_info.blendEnable = VK_FALSE;
+static VkPipelineColorBlendStateCreateInfo create_color_blend_state_info(VkPipelineColorBlendAttachmentState color_blend_attachment) {
+    color_blend_attachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    color_blend_attachment.blendEnable = VK_FALSE;
 
     VkPipelineColorBlendStateCreateInfo color_blend_state_create_info{};
     color_blend_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     color_blend_state_create_info.logicOpEnable = VK_FALSE;
     color_blend_state_create_info.logicOp = VK_LOGIC_OP_COPY;
     color_blend_state_create_info.attachmentCount = 1;
-    color_blend_state_create_info.pAttachments = &color_blend_attachment_state_create_info;
+    color_blend_state_create_info.pAttachments = &color_blend_attachment;
     color_blend_state_create_info.blendConstants[0] = 0.0f;
     color_blend_state_create_info.blendConstants[1] = 0.0f;
     color_blend_state_create_info.blendConstants[2] = 0.0f;
@@ -157,10 +156,48 @@ static VkPipelineColorBlendStateCreateInfo create_color_blend_state_info() {
     return color_blend_state_create_info;
 }
 
+// MODIFIES: render_pass
+// EFFECTS: Creates a render pass for graphics pipeline creation
+static void create_render_pass(VkDevice logical_device, VkFormat swap_chain_image_format, VkRenderPass& render_pass) {
+    VkAttachmentDescription attachment_description{};
+    attachment_description.format = swap_chain_image_format;
+    attachment_description.samples = VK_SAMPLE_COUNT_1_BIT;
+    attachment_description.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    attachment_description.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    attachment_description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    attachment_description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    attachment_description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    attachment_description.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
-// MODIFIES: pipeline_layout
-// EFFECTS: Creates graphics pipeline into pipeline_layout
-void create_graphics_pipeline(VkDevice logical_device, VkExtent2D swap_chain_extent, VkPipelineLayout& pipeline_layout) {
+    VkAttachmentReference attachment_reference{};
+    attachment_reference.attachment = 0;
+    attachment_reference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    VkSubpassDescription subpass_description{};
+    subpass_description.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass_description.colorAttachmentCount = 1;
+    subpass_description.pColorAttachments = &attachment_reference;
+
+    VkRenderPassCreateInfo render_pass_create_info{};
+    render_pass_create_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    render_pass_create_info.pNext = nullptr;
+    render_pass_create_info.attachmentCount = 1;
+    render_pass_create_info.pAttachments = &attachment_description;
+    render_pass_create_info.subpassCount = 1;
+    render_pass_create_info.pSubpasses = &subpass_description;
+    
+    if (vkCreateRenderPass(logical_device, &render_pass_create_info, nullptr, &render_pass) != VK_SUCCESS) {
+        throw std::runtime_error("create_render_pass(): Failed to create render pass!");
+    }
+}
+
+// MODIFIES: pipeline_layout, render_pass, graphics_pipeline
+// EFFECTS: Creates graphics pipeline and returns pipeline_layout, render_pass, and graphics_pipeline
+void create_graphics_pipeline(
+    VkDevice logical_device,
+    VkExtent2D swap_chain_extent, VkFormat swap_chain_image_format,
+    VkPipelineLayout& pipeline_layout, VkRenderPass& render_pass, VkPipeline& graphics_pipeline
+) {
     std::vector<char> vert_shader_code = read_file("./../assets/shaders/shader_vert.spv");
     std::vector<char> frag_shader_code = read_file("./../assets/shaders/shader_frag.spv");
 
@@ -170,10 +207,13 @@ void create_graphics_pipeline(VkDevice logical_device, VkExtent2D swap_chain_ext
     const std::vector<VkPipelineShaderStageCreateInfo> shader_stage_create_info = create_shader_stage_info(logical_device, vert_shader_module, frag_shader_module);
     const VkPipelineVertexInputStateCreateInfo vertex_input_create_info = create_vertex_input_state_info();
     const VkPipelineInputAssemblyStateCreateInfo input_assembly_create_info = create_input_assembly_state_info();
-    const VkPipelineViewportStateCreateInfo viewport_state_create_info = create_viewport_state_info(swap_chain_extent);
+    VkViewport viewport{};
+    VkRect2D scissor{};
+    const VkPipelineViewportStateCreateInfo viewport_state_create_info = create_viewport_state_info(swap_chain_extent, viewport, scissor);
     const VkPipelineRasterizationStateCreateInfo rasterization_state_create_info = create_rasterization_state_info();
     const VkPipelineMultisampleStateCreateInfo multisample_state_create_info = create_multisample_state_info();
-    const VkPipelineColorBlendStateCreateInfo color_blend_state_create_info = create_color_blend_state_info();
+    VkPipelineColorBlendAttachmentState color_blend_attachment{};
+    const VkPipelineColorBlendStateCreateInfo color_blend_state_create_info = create_color_blend_state_info(color_blend_attachment);
 
     VkPipelineLayoutCreateInfo pipeline_layout_create_info{};
     pipeline_layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -183,6 +223,29 @@ void create_graphics_pipeline(VkDevice logical_device, VkExtent2D swap_chain_ext
 
     if (vkCreatePipelineLayout(logical_device, &pipeline_layout_create_info, nullptr, &pipeline_layout) != VK_SUCCESS) {
         throw std::runtime_error("create_graphics_pipeline(): Failed to create graphics pipeline layout!");
+    }
+
+    create_render_pass(logical_device, swap_chain_image_format, render_pass);
+
+    VkGraphicsPipelineCreateInfo pipeline_create_info{};
+    pipeline_create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    pipeline_create_info.pNext = nullptr;
+    pipeline_create_info.stageCount = 2;
+    pipeline_create_info.pStages = shader_stage_create_info.data();
+    pipeline_create_info.pVertexInputState = &vertex_input_create_info;
+    pipeline_create_info.pInputAssemblyState = &input_assembly_create_info;
+    pipeline_create_info.pViewportState = &viewport_state_create_info;
+    pipeline_create_info.pRasterizationState = &rasterization_state_create_info;
+    pipeline_create_info.pMultisampleState = &multisample_state_create_info;
+    pipeline_create_info.pColorBlendState = &color_blend_state_create_info;
+    pipeline_create_info.pDynamicState = nullptr;
+    pipeline_create_info.layout = pipeline_layout;
+    pipeline_create_info.renderPass = render_pass;
+    pipeline_create_info.subpass = 0;
+    pipeline_create_info.basePipelineHandle = VK_NULL_HANDLE;
+
+    if (vkCreateGraphicsPipelines(logical_device, VK_NULL_HANDLE, 1, &pipeline_create_info, nullptr, &graphics_pipeline) != VK_SUCCESS) {
+        throw std::runtime_error("create_graphics_pipeline(): Failed to create graphics pipeline!");
     }
 
     vkDestroyShaderModule(logical_device, vert_shader_module, nullptr);

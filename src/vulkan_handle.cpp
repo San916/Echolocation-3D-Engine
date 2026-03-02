@@ -61,7 +61,7 @@ VulkanHandle::VulkanHandle() {
     setup_physical_device(vk_instance, physical_device, surface, queue_family_indices);
     setup_logical_device(physical_device, logical_device, queue_family_indices, graphics_queue, present_queue);
     create_swap_chain(window, surface, physical_device, logical_device, queue_family_indices, swap_chain, swap_chain_images, swap_chain_image_format, swap_chain_extent);
-    create_graphics_pipeline(logical_device, swap_chain_extent, pipeline_layout);
+    create_graphics_pipeline(logical_device, swap_chain_extent, swap_chain_image_format, pipeline_layout, render_pass, graphics_pipeline);
 }
 
 VulkanHandle::~VulkanHandle() {
@@ -73,7 +73,10 @@ VulkanHandle::~VulkanHandle() {
         vkDestroyImageView(logical_device, image_view, nullptr);
     }
 
+    vkDestroyPipeline(logical_device, graphics_pipeline, nullptr);
     vkDestroyPipelineLayout(logical_device, pipeline_layout, nullptr);
+    vkDestroyRenderPass(logical_device, render_pass, nullptr);
+
     vkDestroySwapchainKHR(logical_device, swap_chain, nullptr);
     vkDestroyDevice(logical_device, nullptr);
     vkDestroySurfaceKHR(vk_instance, surface, nullptr);

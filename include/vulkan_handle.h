@@ -26,6 +26,8 @@ private:
     VkExtent2D swap_chain_extent;
 
     VkPipelineLayout pipeline_layout;
+    VkRenderPass render_pass;
+    VkPipeline graphics_pipeline;
 
     void init_vulkan();
 public:
