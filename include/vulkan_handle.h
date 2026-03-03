@@ -31,7 +31,17 @@ private:
     VkRenderPass render_pass;
     VkPipeline graphics_pipeline;
 
+    VkCommandPool command_pool;
+    std::vector<VkCommandBuffer> command_buffers;
+
+    size_t frame_index = 0;
+    std::vector<VkSemaphore> acquire_semaphores;
+    std::vector<VkSemaphore> render_semaphores;
+    std::vector<VkFence> frame_fences;
+
     void init_vulkan();
+    void create_sync_objects();
+    void draw_frame();
 public:
     VulkanHandle();
     VulkanHandle(const VulkanHandle&) = delete;
