@@ -28,7 +28,7 @@ void VulkanHandle::init_vulkan() {
     app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     app_info.pApplicationName = "3D Engine";
     app_info.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-    app_info.apiVersion = VK_API_VERSION_1_4;
+    app_info.apiVersion = VK_API_VERSION_1_3;
 
 
     VkInstanceCreateInfo create_info{};
@@ -88,7 +88,9 @@ void VulkanHandle::draw_frame() {
 
     uint32_t swap_chain_image_index;
     VkSemaphore acquire_semaphore = acquire_semaphores[frame_index];
-    vkAcquireNextImageKHR(logical_device, swap_chain, UINT64_MAX, acquire_semaphore, VK_NULL_HANDLE, &swap_chain_image_index);
+    if (vkAcquireNextImageKHR(logical_device, swap_chain, UINT64_MAX, acquire_semaphore, VK_NULL_HANDLE, &swap_chain_image_index) != VK_SUCCESS) {
+        throw std::runtime_error("draw_frame(): Failed to acquire next swap chain image!");
+    }
 
     VkSemaphore render_semaphore = render_semaphores[swap_chain_image_index];
 

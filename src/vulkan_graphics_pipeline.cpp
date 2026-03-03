@@ -138,7 +138,7 @@ static VkPipelineMultisampleStateCreateInfo create_multisample_state_info() {
 
 // MODIFIES: color_blend_attachment
 // EFFECTS: Creates color blend state create info for graphics pipeline
-static VkPipelineColorBlendStateCreateInfo create_color_blend_state_info(VkPipelineColorBlendAttachmentState color_blend_attachment) {
+static VkPipelineColorBlendStateCreateInfo create_color_blend_state_info(VkPipelineColorBlendAttachmentState& color_blend_attachment) {
     color_blend_attachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
     color_blend_attachment.blendEnable = VK_FALSE;
 
