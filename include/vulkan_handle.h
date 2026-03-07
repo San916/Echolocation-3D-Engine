@@ -7,6 +7,8 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 
+#include <vulkan_vertex_buffer.h>
+
 class VulkanHandle {
 private:
     GLFWwindow* window;
@@ -37,6 +39,14 @@ private:
 
     VkCommandPool command_pool;
     std::vector<VkCommandBuffer> command_buffers;
+
+    std::vector<Vertex> vertices = {
+        {{0.0f, -0.5f, 0.0f}},
+        {{0.5f, 0.5f, 0.0f}},
+        {{-0.5f, 0.5f, 0.0f}}
+    };
+    VkBuffer vertex_buffer;
+    VkDeviceMemory vertex_buffer_memory;
 
     std::vector<VkBuffer> uniform_buffers;
     std::vector<VkDeviceMemory> uniform_buffers_memory;

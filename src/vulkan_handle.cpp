@@ -14,6 +14,7 @@
 #include <vulkan_swap_chain.h>
 #include <vulkan_uniform_buffer.h>
 #include <vulkan_validation_layers.h>
+#include <vulkan_vertex_buffer.h>
 #include <vulkan_window.h>
 
 #ifdef NDEBUG
@@ -102,7 +103,7 @@ void VulkanHandle::draw_frame() {
     draw_command_buffer(
         render_pass, frame_buffers, swap_chain_extent, 
         swap_chain_image_index, frame_index, pipeline_layout, 
-        descriptor_sets, graphics_pipeline, command_buffer
+        descriptor_sets, vertex_buffer, graphics_pipeline, command_buffer
     );
 
     
@@ -162,6 +163,7 @@ VulkanHandle::VulkanHandle() {
     create_graphics_pipeline(logical_device, swap_chain_extent, swap_chain_image_format, pipeline_layout, render_pass, descriptor_set_layout, graphics_pipeline);
     create_frame_buffers(logical_device, swap_chain_image_views, swap_chain_extent, render_pass, frame_buffers);
     create_command_pool(logical_device, queue_family_indices.graphics_family_index.value(), command_pool);
+    create_vertex_buffer(logical_device, physical_device, vertices, vertex_buffer, vertex_buffer_memory);
     create_uniform_buffers(
         logical_device, physical_device, MAX_FRAMES_IN_FLIGHT, 
         uniform_buffers, uniform_buffers_memory, uniform_buffers_mapped
@@ -187,6 +189,9 @@ VulkanHandle::~VulkanHandle() {
     vkDestroyPipeline(logical_device, graphics_pipeline, nullptr);
     vkDestroyPipelineLayout(logical_device, pipeline_layout, nullptr);
     vkDestroyRenderPass(logical_device, render_pass, nullptr);
+
+    vkDestroyBuffer(logical_device, vertex_buffer, nullptr);
+    vkFreeMemory(logical_device, vertex_buffer_memory, nullptr);
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         vkDestroyBuffer(logical_device, uniform_buffers[i], nullptr);

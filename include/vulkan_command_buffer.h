@@ -11,6 +11,7 @@ void draw_command_buffer(
     VkRenderPass render_pass, std::vector<VkFramebuffer>& frame_buffers, 
     VkExtent2D swap_chain_extent, size_t swap_chain_image_index, size_t frame_index,
     VkPipelineLayout pipeline_layout, const std::vector<VkDescriptorSet>& descriptor_sets,
+    VkBuffer vertex_buffer,
     VkPipeline& graphics_pipeline, VkCommandBuffer& command_buffer
 );
 

@@ -7,13 +7,9 @@ layout(binding = 0) uniform UniformBufferObject {
     vec4 position;
 } ubo;
 
-layout(location = 0) out vec3 frag_color;
+layout(location = 0) in vec3 inPosition;
 
-vec2 positions[3] = vec2[](
-    vec2(0.0, -0.5),
-    vec2(0.5, 0.5),
-    vec2(-0.5, 0.5)
-);
+layout(location = 1) out vec3 frag_color;
 
 vec3 colors[3] = vec3[](
     vec3(1.0, 0.0, 0.0),
@@ -22,6 +18,6 @@ vec3 colors[3] = vec3[](
 );
 
 void main() {
-    gl_Position = ubo.proj * ubo.view * ubo.model * vec4(positions[gl_VertexIndex], 0.0, 1.0);
-    frag_color = colors[gl_VertexIndex];
+    gl_Position = ubo.proj * ubo.view * ubo.model * vec4(inPosition, 1.0);
+    frag_color = colors[1];
 }

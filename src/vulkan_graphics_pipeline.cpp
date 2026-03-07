@@ -6,6 +6,7 @@
 #include <vulkan/vulkan.h>
 
 #include <vulkan_graphics_pipeline.h>
+#include <vulkan_vertex_buffer.h>
 
 // EFFECTS: Read file and return as a char vector
 static std::vector<char> read_file(const std::string& file_name) {
@@ -62,14 +63,17 @@ static std::vector<VkPipelineShaderStageCreateInfo> create_shader_stage_info(VkD
 }
 
 // EFFECTS: Creates vertex input state create info for graphics pipeline
-static VkPipelineVertexInputStateCreateInfo create_vertex_input_state_info() {
+static VkPipelineVertexInputStateCreateInfo create_vertex_input_state_info(VkVertexInputBindingDescription& vertex_binding_description, std::vector<VkVertexInputAttributeDescription>& vertex_attribute_descriptions) {
+    get_vertex_binding_description(vertex_binding_description);
+    get_vertex_attribute_descriptions(vertex_attribute_descriptions);
+
     VkPipelineVertexInputStateCreateInfo vertex_input_create_info{};
     vertex_input_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     vertex_input_create_info.pNext = nullptr;
-    vertex_input_create_info.vertexBindingDescriptionCount = 0;
-    vertex_input_create_info.pVertexBindingDescriptions = nullptr;
-    vertex_input_create_info.vertexAttributeDescriptionCount = 0;
-    vertex_input_create_info.pVertexAttributeDescriptions = nullptr; 
+    vertex_input_create_info.vertexBindingDescriptionCount = 1;
+    vertex_input_create_info.pVertexBindingDescriptions = &vertex_binding_description;
+    vertex_input_create_info.vertexAttributeDescriptionCount = static_cast<uint32_t>(vertex_attribute_descriptions.size());
+    vertex_input_create_info.pVertexAttributeDescriptions = vertex_attribute_descriptions.data(); 
 
     return vertex_input_create_info;
 }
@@ -206,7 +210,9 @@ void create_graphics_pipeline(
     VkShaderModule frag_shader_module = create_shader_module(logical_device, frag_shader_code);
 
     const std::vector<VkPipelineShaderStageCreateInfo> shader_stage_create_info = create_shader_stage_info(logical_device, vert_shader_module, frag_shader_module);
-    const VkPipelineVertexInputStateCreateInfo vertex_input_create_info = create_vertex_input_state_info();
+    VkVertexInputBindingDescription vertex_binding_description{};
+    std::vector<VkVertexInputAttributeDescription> vertex_attribute_descriptions;
+    const VkPipelineVertexInputStateCreateInfo vertex_input_create_info = create_vertex_input_state_info(vertex_binding_description, vertex_attribute_descriptions);
     const VkPipelineInputAssemblyStateCreateInfo input_assembly_create_info = create_input_assembly_state_info();
     VkViewport viewport{};
     VkRect2D scissor{};

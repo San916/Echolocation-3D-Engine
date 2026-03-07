@@ -38,6 +38,7 @@ set(SOURCES
     src/vulkan_uniform_buffer.cpp
     src/vulkan_utils.cpp
     src/vulkan_validation_layers.cpp
+    src/vulkan_vertex_buffer.cpp
     src/vulkan_window.cpp
 )
 
