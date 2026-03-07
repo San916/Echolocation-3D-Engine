@@ -10,7 +10,7 @@
 #include <vulkan_physical_device.h>
 #include <vulkan_swap_chain.h>
 
-#define DESIRED_QUEUE_FAMILY_FLAGS VK_QUEUE_GRAPHICS_BIT
+#define DESIRED_QUEUE_FAMILY_FLAGS VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT
 
 // EFFECTS: Checks if given device supports the required extensions
 static bool supports_device_extensions(VkPhysicalDevice physical_device) {

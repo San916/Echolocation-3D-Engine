@@ -32,9 +32,24 @@ void setup_logical_device(VkPhysicalDevice physical_device, VkDevice& logical_de
         device_queue_create_infos.push_back(device_queue_create_info);
     }
 
+    VkPhysicalDeviceBufferDeviceAddressFeatures buffer_device_address_features{};
+    buffer_device_address_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
+    buffer_device_address_features.pNext = nullptr;
+    buffer_device_address_features.bufferDeviceAddress = VK_TRUE;
+
+    VkPhysicalDeviceAccelerationStructureFeaturesKHR acceleration_structure_features{};
+    acceleration_structure_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+    acceleration_structure_features.pNext = &buffer_device_address_features;
+    acceleration_structure_features.accelerationStructure = VK_TRUE;
+
+    VkPhysicalDeviceRayQueryFeaturesKHR ray_query_features{};
+    ray_query_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
+    ray_query_features.pNext = &acceleration_structure_features;
+    ray_query_features.rayQuery = VK_TRUE;
 
     VkDeviceCreateInfo device_create_info{};
     device_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    device_create_info.pNext = &ray_query_features;
     device_create_info.pQueueCreateInfos = device_queue_create_infos.data();
     device_create_info.queueCreateInfoCount = static_cast<uint32_t>(device_queue_create_infos.size());
     device_create_info.pEnabledFeatures = nullptr;
