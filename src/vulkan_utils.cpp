@@ -1,11 +1,15 @@
 #include <iostream>
+#include <cstdint>
+#include <fstream>
+
+#include <vector>
 
 #include <vulkan/vulkan.h>
 
 #include <vulkan_utils.h>
 
 // EFFECTS: Gets memory properties of given physical_device and returns an index, if exists, where it's both compatible and has the right properties
-static uint32_t get_memory_type(VkPhysicalDevice physical_device, uint32_t compatible_types, VkMemoryPropertyFlags properties) {
+uint32_t get_memory_type(VkPhysicalDevice physical_device, uint32_t compatible_types, VkMemoryPropertyFlags properties) {
     VkPhysicalDeviceMemoryProperties memory_properties;
     vkGetPhysicalDeviceMemoryProperties(physical_device, &memory_properties);
 
@@ -65,4 +69,38 @@ void create_buffer(
     }
 
     vkBindBufferMemory(logical_device, buffer, buffer_memory, 0);
+}
+
+// EFFECTS: Creates a VkShaderModule using the given shader code
+VkShaderModule create_shader_module(VkDevice logical_device, const std::vector<char>& shader_code) {
+    VkShaderModuleCreateInfo shader_create_info{};
+    shader_create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    shader_create_info.codeSize = shader_code.size();
+    shader_create_info.pCode = reinterpret_cast<const uint32_t*>(shader_code.data());
+
+    VkShaderModule shader_module;
+    if (vkCreateShaderModule(logical_device, &shader_create_info, nullptr, &shader_module) != VK_SUCCESS) {
+        throw std::runtime_error("create_shader_module() Failed to create shader module!");
+    }
+
+    return shader_module;
+}
+
+// EFFECTS: Read file and return as a char vector
+std::vector<char> read_file(const std::string& file_name) {
+    std::ifstream file(file_name, std::ios::ate | std::ios::binary);
+
+    if (!file.is_open()) {
+        throw std::runtime_error("read_file(): Failed to open file!");
+    }
+
+    size_t fileSize = (size_t) file.tellg();
+    std::vector<char> buffer(fileSize);
+
+    file.seekg(0);
+    file.read(buffer.data(), fileSize);
+
+    file.close();
+
+    return buffer;
 }
