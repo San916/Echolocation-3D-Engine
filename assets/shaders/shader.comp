@@ -12,6 +12,7 @@ layout(binding = 2) uniform UniformBufferObject {
     mat4 view;
     mat4 proj;
     vec4 position;
+    vec4 sound_waves[8];
 } ubo;
 
 vec3 get_ray_dir(ivec2 viewport_pos, ivec2 image_size) {
@@ -57,28 +58,34 @@ void main() {
 
     while (rayQueryProceedEXT(ray_query)) {};
 
-    if (rayQueryGetIntersectionTypeEXT(ray_query, true) == gl_RayQueryCommittedIntersectionTriangleEXT) {
-        float dist = rayQueryGetIntersectionTEXT(ray_query, true);
-
-
-        // A design that uses lines instead of dots
-        // float intensity = clamp(2.0 / (dist * dist), 0.0, 1.0);
-        // float scaled = intensity * 50.0;
-        // int bucket = int(floor(scaled));
-        // float diff = scaled - float(bucket);
-
-        // if (diff < 0.5) {
-            // intensity = intensity * intensity;
-            // color = vec4(intensity, intensity, intensity, 1.0);
-        // }
-
-        float grid_size = max(1.0, dist * 2.0);
-        int grid = int(grid_size);
-        if (viewport_pos.x % grid < 2 && viewport_pos.y % grid < 2) {
-            float intensity = clamp(2.0 / (dist * dist), 0.0, 1.0) / 2;
-            color = vec4(intensity, intensity, intensity, 1.0);
-        }
+    if (rayQueryGetIntersectionTypeEXT(ray_query, true) != gl_RayQueryCommittedIntersectionTriangleEXT) {
+        imageStore(storage_image, viewport_pos, color);
+        return;
     }
 
+    float dist_from_surface = rayQueryGetIntersectionTEXT(ray_query, true);
+    vec3 hit_point = ray_origin + dist_from_surface * ray_dir;
+
+    float intensity = 0.0;
+    for (int i = 0; i < 8; i++) {
+        float wave_radius = ubo.sound_waves[i].w;
+        if (wave_radius < 0.0) continue;
+        vec3 wave_origin = ubo.sound_waves[i].xyz;
+
+        if (abs(dist_from_surface - wave_radius) > 1.0) continue;
+
+        float round_trip_dist = length(hit_point - wave_origin) + dist_from_surface;
+        round_trip_dist /= 2;
+
+        intensity += clamp(2.0 / (round_trip_dist * round_trip_dist), 0.0, 1.0);
+    }
+
+    if (intensity > 0.0) {
+        float grid_size = max(1.0, (1 - intensity) * 4);
+        int grid = int(grid_size);
+        if (viewport_pos.x % grid < 2 && viewport_pos.y % grid < 2) {
+            color.rgb += vec3(intensity);
+        }
+    }
     imageStore(storage_image, viewport_pos, color);
 }
