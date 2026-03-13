@@ -8,11 +8,14 @@
 #include <vulkan/vulkan.h>
 #include <glm/glm.hpp>
 
+#define MAX_SOUND_WAVES 8
+
 typedef struct UniformBufferObject {
     glm::mat4 model;
     glm::mat4 view;
     glm::mat4 proj;
     glm::vec4 position;
+    glm::vec4 sound_waves[MAX_SOUND_WAVES];
 } UniformBufferObject;
 
 void create_uniform_buffers(
@@ -23,6 +26,13 @@ void create_uniform_buffers(
     std::vector<VkDeviceMemory>& uniform_buffers_memory,
     std::vector<void*>& uniform_buffers_mapped
 );
-void update_uniform_buffer(uint32_t frame_index, VkExtent2D swap_chain_extent, glm::vec3 camera_position, glm::vec2 camera_rotation, std::vector<void*>& uniform_buffers_mapped);
+void update_uniform_buffer(
+    uint32_t frame_index, 
+    VkExtent2D swap_chain_extent, 
+    glm::vec3 camera_position, 
+    glm::vec2 camera_rotation, 
+    const std::vector<glm::vec4>& sound_waves, 
+    std::vector<void*>& uniform_buffers_mapped
+);
 
 #endif

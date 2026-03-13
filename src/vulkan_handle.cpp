@@ -1,4 +1,5 @@
 #include <iostream>
+#include <algorithm>
 #include <cstdint>
 
 #include <vulkan/vulkan.h>
@@ -123,7 +124,7 @@ void VulkanHandle::draw_frame() {
         throw std::runtime_error("draw_frame(): Failed to acquire next swap chain image!");
     }
 
-    update_uniform_buffer(frame_index, swap_chain_extent, camera_position, camera_rotation, uniform_buffers_mapped);
+    update_uniform_buffer(frame_index, swap_chain_extent, camera_position, camera_rotation, sound_waves, uniform_buffers_mapped);
 
     VkSemaphore render_semaphore = render_semaphores[swap_chain_image_index];
 
@@ -363,6 +364,24 @@ void VulkanHandle::run() {
                 camera_position.y -= move_speed;
             }
         }
+
+        for  (size_t i = 0; i < sound_waves.size(); i++) {
+            sound_waves[i].w += 0.003f;
+        }
+        sound_waves.erase(
+            std::remove_if(sound_waves.begin(), sound_waves.end(), 
+                [&](const glm::vec4 sound_wave) { return sound_wave.w > 10.f; }
+            ),
+            sound_waves.end()
+        );
+
+        bool q_pressed = glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS;
+        if (q_pressed && !q_held_down) {
+            if (sound_waves.size() < MAX_SOUND_WAVES) {
+                sound_waves.push_back(glm::vec4(camera_position, 0.0f));
+            }
+        }
+        q_held_down = q_pressed;
 
         glfwPollEvents();
         draw_frame();

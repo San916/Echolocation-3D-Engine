@@ -25,7 +25,7 @@ void setup_window(GLFWwindow*& window, void* user_pointer, GLFWcursorposfun mous
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
-    window = glfwCreateWindow(800, 600, "Vulkan window", nullptr, nullptr);
+    window = glfwCreateWindow(1280, 720, "Vulkan window", nullptr, nullptr);
     if (window == nullptr) {
         throw std::runtime_error("setup_window(): Failed to create GLFW window!");
     }
