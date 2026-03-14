@@ -44,6 +44,7 @@ set(SOURCES
     src/vulkan_handle.cpp
     src/vulkan_index_buffer.cpp
     src/vulkan_logical_device.cpp
+    src/vulkan_object_loading.cpp
     src/vulkan_physical_device.cpp
     src/vulkan_storage_image.cpp
     src/vulkan_swap_chain.cpp

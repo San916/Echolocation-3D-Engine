@@ -6,6 +6,7 @@
 #include <vector>
 
 #include <vulkan/vulkan.h>
+#include <glm/glm.hpp>
 
 void create_index_buffer(
     VkDevice logical_device, 

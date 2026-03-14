@@ -16,6 +16,7 @@
 #include <vulkan_graphics_pipeline.h>
 #include <vulkan_index_buffer.h>
 #include <vulkan_logical_device.h>
+#include <vulkan_object_loading.h>
 #include <vulkan_physical_device.h>
 #include <vulkan_storage_image.h>
 #include <vulkan_swap_chain.h>
@@ -211,6 +212,7 @@ VulkanHandle::VulkanHandle() {
         storage_image, storage_image_memory, 
         storage_image_view, storage_image_format
     );
+    load_obj_file("./../assets/models/cube.obj", vertices, indices);
     create_vertex_buffer(logical_device, physical_device, command_pool, graphics_queue, vertices, vertex_buffer, vertex_buffer_memory);
     create_index_buffer(logical_device, physical_device, command_pool, graphics_queue, indices, index_buffer, index_buffer_memory);
     create_bottom_level_acceleration_structure(
@@ -324,7 +326,7 @@ void VulkanHandle::run() {
         float delta_time = std::chrono::duration<float>(current_time - previous_time).count();
         previous_time = current_time;
 
-        const bool flying = false;
+        const bool flying = true;
 
         glm::vec3 forward;
         glm::vec3 right;
@@ -376,7 +378,7 @@ void VulkanHandle::run() {
         }
         sound_waves.erase(
             std::remove_if(sound_waves.begin(), sound_waves.end(), 
-                [&](const glm::vec4 sound_wave) { return sound_wave.w > 10.f; }
+                [&](const glm::vec4 sound_wave) { return sound_wave.w > 20.f; }
             ),
             sound_waves.end()
         );
