@@ -5,6 +5,7 @@
 #include <vector>
 
 #include <vulkan/vulkan.h>
+#include <glm/glm.hpp>
 
 #include <vulkan_acceleration_structure.h>
 #include <vulkan_command_buffer.h>

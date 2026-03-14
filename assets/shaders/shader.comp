@@ -41,7 +41,7 @@ float get_ray_hit(vec3 ray_origin, vec3 ray_dir) {
         ray_origin, 
         0.001, 
         ray_dir, 
-        1000.0
+        100.0
     );
 
     while (rayQueryProceedEXT(ray_query)) {};
@@ -64,7 +64,7 @@ bool is_ray_obstructed(vec3 ray_origin, vec3 ray_target) {
         gl_RayFlagsNoneEXT, 
         0xFF, 
         ray_origin, 
-        0.001, 
+        0.01, 
         normalize(ray_dir), 
         dist - 0.01
     );
@@ -108,10 +108,11 @@ void main() {
         float round_trip_dist = dist_to_source + dist_from_surface;
         round_trip_dist /= 2;
         if (abs(round_trip_dist - wave_radius) > 1.0) continue;
+        float decay_val = wave_radius > round_trip_dist ? exp(-abs(round_trip_dist - wave_radius)) : 0.0;
 
-        if (is_ray_obstructed(hit_point, wave_origin)) continue;
+        if (is_ray_obstructed(wave_origin, hit_point)) continue;
 
-        intensity += clamp(2.0 / (round_trip_dist * round_trip_dist), 0.0, 1.0);
+        intensity += clamp(2.0 / (round_trip_dist * round_trip_dist), 0.0, decay_val);
     }
 
     if (intensity > 0.0) {
