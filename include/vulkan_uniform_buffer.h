@@ -8,7 +8,7 @@
 #include <vulkan/vulkan.h>
 #include <glm/glm.hpp>
 
-#define MAX_SOUND_WAVES 8
+#define MAX_SOUND_WAVES 16
 
 typedef struct UniformBufferObject {
     glm::mat4 model;
