@@ -1,5 +1,5 @@
-# Echolocation-Game-Engine
-3D engine where the user, instead of using light to see, uses sonar.
+# Sound-Based-3D-Engine
+3D engine where the user, instead of using light and colors to see, uses raytracing to mimic sound-based methods.
 
 # Setup
 * Install Vulkan (1.4.328.0), glfw3 (3.4.1), glm (1.02) with vcpkg
