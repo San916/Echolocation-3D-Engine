@@ -47,6 +47,7 @@ set(SOURCES
     src/vulkan_object_loading.cpp
     src/vulkan_object.cpp
     src/vulkan_physical_device.cpp
+    src/vulkan_scene.cpp
     src/vulkan_storage_image.cpp
     src/vulkan_swap_chain.cpp
     src/vulkan_uniform_buffer.cpp

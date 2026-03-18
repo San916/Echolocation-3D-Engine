@@ -94,7 +94,7 @@ void create_storage_image(
     VkImage& storage_image, VkDeviceMemory& storage_image_memory, 
     VkImageView& storage_image_view, VkFormat& storage_image_format
 ) {
-    storage_image_format = VK_FORMAT_R8G8B8A8_UNORM;;
+    storage_image_format = VK_FORMAT_R8G8B8A8_UNORM;
 
     create_storage_image_memory(
         logical_device, physical_device, 
