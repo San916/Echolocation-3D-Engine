@@ -29,15 +29,24 @@ private:
     VkBuffer blas_buffer = VK_NULL_HANDLE;
     VkDeviceMemory blas_buffer_memory = VK_NULL_HANDLE;
     VkAccelerationStructureKHR blas = VK_NULL_HANDLE;
+
+    void init_object(VkPhysicalDevice physical_device, VkCommandPool command_pool, VkQueue graphics_queue);
 public:
     glm::vec3 position;
     glm::vec3 rotation;
     glm::vec3 scale;
 
-    VulkanObject(const std::string& file_name);
+    VulkanObject(
+        const std::string& file_name,
+        VkDevice logical_device,
+        VkPhysicalDevice physical_device,
+        VkCommandPool command_pool,
+        VkQueue graphics_queue
+    );
     ~VulkanObject();
 
-    void init_object(VkDevice logical_device, VkPhysicalDevice physical_device, VkCommandPool command_pool, VkQueue graphics_queue);
+    VulkanObject(const VulkanObject&) = delete;
+    VulkanObject& operator=(const VulkanObject&) = delete;
 
     glm::mat4 get_model_matrix() const;
     VkAccelerationStructureKHR get_blas() const { return blas; }

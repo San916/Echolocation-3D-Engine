@@ -14,10 +14,20 @@
 #include <vulkan_object.h>
 #include <vulkan_vertex_buffer.h>
 
-VulkanObject::VulkanObject(const std::string& file_name) : file_name(file_name) {
+VulkanObject::VulkanObject(
+    const std::string& file_name,
+    VkDevice logical_device,
+    VkPhysicalDevice physical_device,
+    VkCommandPool command_pool,
+    VkQueue graphics_queue
+) : file_name(file_name) {
+    this->logical_device = logical_device;
+
     position = glm::vec3(0.0f);
     rotation = glm::vec3(0.0f);
     scale = glm::vec3(1.0f);
+
+    init_object(physical_device, command_pool, graphics_queue);
 }
 
 VulkanObject::~VulkanObject() {
@@ -32,9 +42,7 @@ VulkanObject::~VulkanObject() {
     cleanup_acceleration_structure(logical_device, blas_buffer, blas_buffer_memory, blas);
 }
 
-void VulkanObject::init_object(VkDevice logical_device, VkPhysicalDevice physical_device, VkCommandPool command_pool, VkQueue graphics_queue) {
-    this->logical_device = logical_device;
-
+void VulkanObject::init_object(VkPhysicalDevice physical_device, VkCommandPool command_pool, VkQueue graphics_queue) {
     load_obj_file(file_name, vertices, indices);
     create_vertex_buffer(logical_device, physical_device, command_pool, graphics_queue, vertices, vertex_buffer, vertex_buffer_memory);
     create_index_buffer(logical_device, physical_device, command_pool, graphics_queue, indices, index_buffer, index_buffer_memory);

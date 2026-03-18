@@ -19,6 +19,7 @@
 #include <vulkan_object.h>
 #include <vulkan_object_loading.h>
 #include <vulkan_physical_device.h>
+#include <vulkan_scene.h>
 #include <vulkan_storage_image.h>
 #include <vulkan_swap_chain.h>
 #include <vulkan_uniform_buffer.h>
@@ -127,6 +128,7 @@ void VulkanHandle::draw_frame() {
         throw std::runtime_error("draw_frame(): Failed to acquire next swap chain image!");
     }
 
+    const std::vector<VulkanObject*> objects = scene->get_objects();
     std::vector<glm::mat4> transforms;
     for (size_t i = 0; i < objects.size(); i++) {
         transforms.push_back(objects[i]->get_model_matrix());
@@ -219,23 +221,8 @@ VulkanHandle::VulkanHandle() {
         storage_image_view, storage_image_format
     );
 
-    // Hardcoded objects
-    VulkanObject* test_object = new VulkanObject("./../assets/models/cube.obj");
-    test_object->init_object(logical_device, physical_device, command_pool, graphics_queue);
-    objects.push_back(test_object);
-
-    VulkanObject* test_object_2 = new VulkanObject("./../assets/models/cube.obj");
-    test_object_2->init_object(logical_device, physical_device, command_pool, graphics_queue);
-    test_object_2->position = glm::vec3(2.0f, 0.0f, 0.0f);
-    objects.push_back(test_object_2);
-
-    VulkanObject* test_object_3 = new VulkanObject("./../assets/models/cube.obj");
-    test_object_3->init_object(logical_device, physical_device, command_pool, graphics_queue);
-    test_object_3->position = glm::vec3(2.0f, 1.5f, 0.0f);
-    test_object_3->rotation = glm::vec3(0.0f, 45.0f, 0.0f);
-    test_object_3->scale = glm::vec3(0.5f);
-    objects.push_back(test_object_3);
-    //
+    scene = new Scene("./../assets/scenes/scene.txt", logical_device, physical_device, command_pool, graphics_queue);
+    const std::vector<VulkanObject*> objects = scene->get_objects();
 
     std::vector<VkAccelerationStructureKHR> blases;
     std::vector<glm::mat4> transforms;
@@ -301,13 +288,11 @@ VulkanHandle::~VulkanHandle() {
     vkDestroyPipelineLayout(logical_device, graphics_pipeline_layout, nullptr);
     vkDestroyRenderPass(logical_device, render_pass, nullptr);
 
-    for (size_t i = 0; i < objects.size(); i++) {
-        delete objects[i];
-    }
+    cleanup_acceleration_structure(logical_device, tlas_buffer, tlas_buffer_memory, tlas);
 
     cleanup_storage_image(logical_device, storage_image, storage_image_memory, storage_image_view);
 
-    cleanup_acceleration_structure(logical_device, tlas_buffer, tlas_buffer_memory, tlas);
+    delete scene;
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         vkDestroyBuffer(logical_device, uniform_buffers[i], nullptr);
