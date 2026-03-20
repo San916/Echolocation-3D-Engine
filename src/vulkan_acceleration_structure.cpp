@@ -99,7 +99,7 @@ static void create_acceleration_structure(
 
     VkDeviceSize scratch_buffer_size = build_size_info.buildScratchSize;
     VkBuffer scratch_buffer;
-    VkDeviceMemory stratch_buffer_memory;
+    VkDeviceMemory scratch_buffer_memory;
     create_buffer(
         logical_device, 
         physical_device, 
@@ -107,7 +107,7 @@ static void create_acceleration_structure(
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, 
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
         scratch_buffer, 
-        stratch_buffer_memory
+        scratch_buffer_memory
     );
 
 
@@ -133,7 +133,7 @@ static void create_acceleration_structure(
     finish_single_time_command(logical_device, graphics_queue, command_pool, command_buffer);
 
     vkDestroyBuffer(logical_device, scratch_buffer, nullptr);
-    vkFreeMemory(logical_device, stratch_buffer_memory, nullptr);
+    vkFreeMemory(logical_device, scratch_buffer_memory, nullptr);
 }
 
 // MODIFIES: blas_buffer, blas_memory, blas
@@ -307,7 +307,7 @@ void create_top_level_acceleration_structure(
     build_geometry_info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
     build_geometry_info.pNext = nullptr;
     build_geometry_info.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
-    build_geometry_info.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+    build_geometry_info.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
     build_geometry_info.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
     build_geometry_info.geometryCount = 1;
     build_geometry_info.pGeometries = &tlas_geometry;
@@ -320,6 +320,116 @@ void create_top_level_acceleration_structure(
         tlas_buffer, tlas_buffer_memory, tlas
     );
 
+    vkDestroyBuffer(logical_device, instance_buffer, nullptr);
+    vkFreeMemory(logical_device, instance_buffer_memory, nullptr);
+}
+
+// MODIFIES: tlas
+// EFFECTS:
+//     Updates the tlas using the current object transforms
+void update_top_level_acceleration_structure(
+    VkDevice logical_device, VkPhysicalDevice physical_device,
+    VkCommandPool command_pool, VkQueue graphics_queue,
+    const std::vector<VkAccelerationStructureKHR>& blases,
+    const std::vector<glm::mat4>& transforms,
+    VkAccelerationStructureKHR& tlas
+) {
+    PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR =
+        (PFN_vkGetAccelerationStructureBuildSizesKHR)load_function(logical_device, "vkGetAccelerationStructureBuildSizesKHR");
+    PFN_vkCmdBuildAccelerationStructuresKHR vkCmdBuildAccelerationStructuresKHR =
+        (PFN_vkCmdBuildAccelerationStructuresKHR)load_function(logical_device, "vkCmdBuildAccelerationStructuresKHR");
+
+    std::vector<VkAccelerationStructureInstanceKHR> instances;
+    for (size_t i = 0; i < blases.size(); i++) {
+        VkAccelerationStructureInstanceKHR instance{};
+        create_tlas_instance(logical_device, blases[i], transforms[i], instance);
+        instances.push_back(instance);
+    }
+
+    VkBuffer instance_buffer;
+    VkDeviceMemory instance_buffer_memory;
+    create_instance_buffer(
+        logical_device, physical_device,
+        command_pool, graphics_queue,
+        instances,
+        instance_buffer, instance_buffer_memory
+    );
+
+    VkDeviceOrHostAddressConstKHR instance_buffer_address;
+    get_buffer_device_address_const(logical_device, instance_buffer, instance_buffer_address);
+
+    VkAccelerationStructureGeometryInstancesDataKHR instance_data{};
+    instance_data.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
+    instance_data.pNext = nullptr;
+    instance_data.arrayOfPointers = VK_FALSE;
+    instance_data.data = instance_buffer_address;
+
+    VkAccelerationStructureGeometryKHR tlas_geometry{};
+    tlas_geometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+    tlas_geometry.pNext = nullptr;
+    tlas_geometry.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
+    tlas_geometry.geometry.instances = instance_data;
+    tlas_geometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
+
+    VkAccelerationStructureBuildGeometryInfoKHR build_geometry_info{};
+    build_geometry_info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+    build_geometry_info.pNext = nullptr;
+    build_geometry_info.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+    build_geometry_info.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
+    build_geometry_info.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR;
+    build_geometry_info.srcAccelerationStructure = tlas;
+    build_geometry_info.dstAccelerationStructure = tlas;
+    build_geometry_info.geometryCount = 1;
+    build_geometry_info.pGeometries = &tlas_geometry;
+
+    uint32_t max_primitive_count = static_cast<uint32_t>(instances.size());
+    VkAccelerationStructureBuildSizesInfoKHR build_size_info{};
+    build_size_info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
+    vkGetAccelerationStructureBuildSizesKHR(
+        logical_device,
+        VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+        &build_geometry_info,
+        &max_primitive_count,
+        &build_size_info
+    );
+
+    VkDeviceSize scratch_buffer_size = build_size_info.buildScratchSize;
+    VkBuffer scratch_buffer;
+    VkDeviceMemory scratch_buffer_memory;
+    create_buffer(
+        logical_device,
+        physical_device,
+        scratch_buffer_size, 
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, 
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
+        scratch_buffer, 
+        scratch_buffer_memory
+    );
+
+
+    VkDeviceOrHostAddressKHR scratch_buffer_address;
+    get_buffer_device_address(logical_device, scratch_buffer, scratch_buffer_address);
+
+    build_geometry_info.dstAccelerationStructure = tlas;
+    build_geometry_info.scratchData = scratch_buffer_address;
+
+    VkAccelerationStructureBuildRangeInfoKHR build_range_info{};
+    build_range_info.primitiveCount = max_primitive_count;
+    build_range_info.primitiveOffset = 0;
+    build_range_info.firstVertex = 0;
+    build_range_info.transformOffset = 0;
+
+    const VkAccelerationStructureBuildRangeInfoKHR* build_range_info_const = &build_range_info;
+
+    VkCommandBuffer command_buffer;
+    begin_single_time_command(logical_device, command_pool, command_buffer);
+
+    vkCmdBuildAccelerationStructuresKHR(command_buffer, 1, &build_geometry_info, &build_range_info_const);
+    
+    finish_single_time_command(logical_device, graphics_queue, command_pool, command_buffer);
+
+    vkDestroyBuffer(logical_device, scratch_buffer, nullptr);
+    vkFreeMemory(logical_device, scratch_buffer_memory, nullptr);
     vkDestroyBuffer(logical_device, instance_buffer, nullptr);
     vkFreeMemory(logical_device, instance_buffer_memory, nullptr);
 }

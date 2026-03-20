@@ -1,14 +1,17 @@
 #version 460
 
 layout(binding = 0) uniform UniformBufferObject {
-    mat4 model[16];
     mat4 view;
     mat4 proj;
     vec4 position;
-    vec4 sound_waves[16];
 } ubo;
 
 layout(binding = 1) uniform sampler2D storage_image;
+
+layout(binding = 2) readonly buffer StorageBufferObject {
+    mat4 model[16];
+    vec4 sound_waves[16];
+} ssbo;
 
 layout(location = 1) in vec3 fragColor;
 

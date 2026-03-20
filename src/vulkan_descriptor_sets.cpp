@@ -5,6 +5,7 @@
 #include <vulkan/vulkan.h>
 
 #include <vulkan_descriptor_sets.h>
+#include <vulkan_storage_buffer.h>
 #include <vulkan_uniform_buffer.h>
 #include <vulkan_utils.h>
 
@@ -49,9 +50,9 @@ static void allocate_descriptor_sets(
     }
 }
 
-// MODIFIES: descriptor_set_layout
+// MODIFIES: graphics_descriptor_set_layout
 // EFFECTS: Creates a descriptor set layout for the graphics pipeline and returns it
-// Currently uses a binding for the uniform buffer, and the storage image
+//     Binds: UBO, storage image
 void create_graphics_descriptor_set_layout(VkDevice logical_device, VkDescriptorSetLayout& graphics_descriptor_set_layout) {
     VkDescriptorSetLayoutBinding uniform_buffer_binding{};
     uniform_buffer_binding.binding = 0;
@@ -67,16 +68,23 @@ void create_graphics_descriptor_set_layout(VkDevice logical_device, VkDescriptor
     storage_image_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
     storage_image_binding.pImmutableSamplers = nullptr;
 
+    VkDescriptorSetLayoutBinding storage_buffer_binding{};
+    storage_buffer_binding.binding = 2;
+    storage_buffer_binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    storage_buffer_binding.descriptorCount = 1;
+    storage_buffer_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    storage_buffer_binding.pImmutableSamplers = nullptr;
+
     std::vector<VkDescriptorSetLayoutBinding> bindings = {
-        uniform_buffer_binding, storage_image_binding
+        uniform_buffer_binding, storage_image_binding, storage_buffer_binding
     };
 
     create_descriptor_set_layout(logical_device, bindings, graphics_descriptor_set_layout);
 }
 
-// MODIFIES: descriptor_set_layout
+// MODIFIES: compute_descriptor_set_layout
 // EFFECTS: Creates a descriptor set layout for the compute pipeline and returns it
-// Currently uses a binding for the top level acceleration structure, and storage image
+//     Binds: TLAS, storage image, UBO, storage buffer
 void create_compute_descriptor_set_layout(VkDevice logical_device, VkDescriptorSetLayout& compute_descriptor_set_layout) {
     VkDescriptorSetLayoutBinding tlas_binding{};
     tlas_binding.binding = 0;
@@ -98,9 +106,16 @@ void create_compute_descriptor_set_layout(VkDevice logical_device, VkDescriptorS
     uniform_buffer_binding.descriptorCount = 1;
     uniform_buffer_binding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
     uniform_buffer_binding.pImmutableSamplers = nullptr;
+    
+    VkDescriptorSetLayoutBinding storage_buffer_binding{};
+    storage_buffer_binding.binding = 3;
+    storage_buffer_binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    storage_buffer_binding.descriptorCount = 1;
+    storage_buffer_binding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    storage_buffer_binding.pImmutableSamplers = nullptr;
 
     std::vector<VkDescriptorSetLayoutBinding> bindings = {
-        tlas_binding, storage_image_binding, uniform_buffer_binding
+        tlas_binding, storage_image_binding, uniform_buffer_binding, storage_buffer_binding
     };
 
     create_descriptor_set_layout(logical_device, bindings, compute_descriptor_set_layout);
@@ -118,7 +133,11 @@ void create_graphics_descriptor_pool(VkDevice logical_device, size_t max_frames_
     storage_image_sample_size.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     storage_image_sample_size.descriptorCount = static_cast<uint32_t>(max_frames_in_flight);
 
-    std::vector<VkDescriptorPoolSize> pool_sizes = {uniform_buffer_size, storage_image_sample_size};
+    VkDescriptorPoolSize storage_buffer_size{};
+    storage_buffer_size.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    storage_buffer_size.descriptorCount = static_cast<uint32_t>(max_frames_in_flight);
+
+    std::vector<VkDescriptorPoolSize> pool_sizes = {uniform_buffer_size, storage_image_sample_size, storage_buffer_size};
 
     VkDescriptorPoolCreateInfo descriptor_pool_create_info{};
     descriptor_pool_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -146,7 +165,12 @@ void create_compute_descriptor_pool(VkDevice logical_device, size_t max_frames_i
     VkDescriptorPoolSize uniform_buffer_size{};
     uniform_buffer_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     uniform_buffer_size.descriptorCount = static_cast<uint32_t>(max_frames_in_flight);
-    std::vector<VkDescriptorPoolSize> pool_sizes = {tlas_size, storage_image_size, uniform_buffer_size};
+
+    VkDescriptorPoolSize storage_buffer_size{};
+    storage_buffer_size.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    storage_buffer_size.descriptorCount = static_cast<uint32_t>(max_frames_in_flight);
+
+    std::vector<VkDescriptorPoolSize> pool_sizes = {tlas_size, storage_image_size, uniform_buffer_size, storage_buffer_size};
 
     VkDescriptorPoolCreateInfo descriptor_pool_create_info{};
     descriptor_pool_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -165,22 +189,24 @@ void create_compute_descriptor_pool(VkDevice logical_device, size_t max_frames_i
 // EFFECTS: Allocates descriptor sets and writes the resources into the descriptor sets, with unique bindings
 //     Writes the uniform buffer in binding 0 of each descriptor set
 //     Writes the storage image as a sampler (read only) in binding 1 of each descriptor set
+//     Writes the storage buffer in binding 2
 void create_graphics_descriptor_sets(
     VkDevice logical_device, 
     size_t max_frames_in_flight, 
     VkDescriptorPool graphics_descriptor_pool, 
-    const std::vector<VkBuffer>& uniform_buffers, 
     VkSampler& storage_image_sampler, 
     const VkImageView storage_image_view, 
+    const std::vector<VkBuffer>& uniform_buffers, 
+    const std::vector<VkBuffer>& storage_buffers,
     const VkDescriptorSetLayout& graphics_descriptor_set_layout, 
     std::vector<VkDescriptorSet>& graphics_descriptor_sets
 ) {
     allocate_descriptor_sets(logical_device, max_frames_in_flight, graphics_descriptor_pool, graphics_descriptor_set_layout, graphics_descriptor_sets);
 
-    VkDescriptorBufferInfo buffer_info{};
-    buffer_info.buffer = nullptr;
-    buffer_info.offset = 0;
-    buffer_info.range = sizeof(UniformBufferObject);
+    VkDescriptorBufferInfo uniform_buffer_info{};
+    uniform_buffer_info.buffer = nullptr;
+    uniform_buffer_info.offset = 0;
+    uniform_buffer_info.range = sizeof(UniformBufferObject);
 
     VkWriteDescriptorSet uniform_buffer_write{};
     uniform_buffer_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -190,7 +216,7 @@ void create_graphics_descriptor_sets(
     uniform_buffer_write.descriptorCount = 1;
     uniform_buffer_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     uniform_buffer_write.pImageInfo = nullptr;
-    uniform_buffer_write.pBufferInfo = &buffer_info;
+    uniform_buffer_write.pBufferInfo = &uniform_buffer_info;
     uniform_buffer_write.pTexelBufferView = nullptr;
 
     VkSamplerCreateInfo storage_image_sampler_create_info{};
@@ -223,13 +249,32 @@ void create_graphics_descriptor_sets(
     storage_image_write.pBufferInfo = nullptr;
     storage_image_write.pTexelBufferView = nullptr;
 
+    VkDescriptorBufferInfo storage_buffer_info{};
+    storage_buffer_info.buffer = nullptr;
+    storage_buffer_info.offset = 0;
+    storage_buffer_info.range = sizeof(StorageBufferObject);
+
+    VkWriteDescriptorSet storage_buffer_write{};
+    storage_buffer_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    storage_buffer_write.pNext = nullptr;
+    storage_buffer_write.dstBinding = 2;
+    storage_buffer_write.dstArrayElement = 0;
+    storage_buffer_write.descriptorCount = 1;
+    storage_buffer_write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    storage_buffer_write.pImageInfo = nullptr;
+    storage_buffer_write.pBufferInfo = &storage_buffer_info;
+    storage_buffer_write.pTexelBufferView = nullptr;
+
     for (size_t i = 0; i < max_frames_in_flight; i++) {
-        buffer_info.buffer = uniform_buffers[i];
+        uniform_buffer_info.buffer = uniform_buffers[i];
         uniform_buffer_write.dstSet = graphics_descriptor_sets[i];
 
         storage_image_write.dstSet = graphics_descriptor_sets[i];
 
-        std::vector<VkWriteDescriptorSet> writes = {uniform_buffer_write, storage_image_write};
+        storage_buffer_info.buffer = storage_buffers[i];
+        storage_buffer_write.dstSet = graphics_descriptor_sets[i];
+
+        std::vector<VkWriteDescriptorSet> writes = {uniform_buffer_write, storage_image_write, storage_buffer_write};
 
         vkUpdateDescriptorSets(logical_device, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
     }
@@ -239,7 +284,9 @@ void create_graphics_descriptor_sets(
 // MODIFIES: compute_descriptor_sets
 // EFFECTS: Allocates compute descriptor sets and writes the resources into each descriptor set with unique bindings
 //     Writes the top level acceleration structure in binding 0 of each descriptor set
-//     Writes the storage image (allows write) in binding 1 of each descriptor set
+//     Writes the storage image (allows writing into, unlike a sampler) in binding 1 of each descriptor set
+//     Writes the ubo in binding 2
+//     Writes the storage buffer in binding 3
 void create_compute_descriptor_sets(
     VkDevice logical_device, 
     size_t max_frames_in_flight, 
@@ -247,6 +294,7 @@ void create_compute_descriptor_sets(
     const VkAccelerationStructureKHR& tlas, 
     const VkImageView storage_image_view, 
     const std::vector<VkBuffer>& uniform_buffers, 
+    const std::vector<VkBuffer>& storage_buffers, 
     const VkDescriptorSetLayout& compute_descriptor_set_layout, 
     std::vector<VkDescriptorSet>& compute_descriptor_sets
 ) {
@@ -284,10 +332,10 @@ void create_compute_descriptor_sets(
     storage_image_write.pBufferInfo = nullptr;
     storage_image_write.pTexelBufferView = nullptr;
 
-    VkDescriptorBufferInfo buffer_info{};
-    buffer_info.buffer = nullptr;
-    buffer_info.offset = 0;
-    buffer_info.range = sizeof(UniformBufferObject);
+    VkDescriptorBufferInfo uniform_buffer_info{};
+    uniform_buffer_info.buffer = nullptr;
+    uniform_buffer_info.offset = 0;
+    uniform_buffer_info.range = sizeof(UniformBufferObject);
 
     VkWriteDescriptorSet uniform_buffer_write{};
     uniform_buffer_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -297,16 +345,38 @@ void create_compute_descriptor_sets(
     uniform_buffer_write.descriptorCount = 1;
     uniform_buffer_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     uniform_buffer_write.pImageInfo = nullptr;
-    uniform_buffer_write.pBufferInfo = &buffer_info;
+    uniform_buffer_write.pBufferInfo = &uniform_buffer_info;
     uniform_buffer_write.pTexelBufferView = nullptr;
+
+    VkDescriptorBufferInfo storage_buffer_info{};
+    storage_buffer_info.buffer = nullptr;
+    storage_buffer_info.offset = 0;
+    storage_buffer_info.range = sizeof(StorageBufferObject);
+
+    VkWriteDescriptorSet storage_buffer_write{};
+    storage_buffer_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    storage_buffer_write.pNext = nullptr;
+    storage_buffer_write.dstBinding = 3;
+    storage_buffer_write.dstArrayElement = 0;
+    storage_buffer_write.descriptorCount = 1;
+    storage_buffer_write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    storage_buffer_write.pImageInfo = nullptr;
+    storage_buffer_write.pBufferInfo = &storage_buffer_info;
+    storage_buffer_write.pTexelBufferView = nullptr;
+
 
     for (size_t i = 0; i < max_frames_in_flight; i++) {
         tlas_write.dstSet = compute_descriptor_sets[i];
+
         storage_image_write.dstSet = compute_descriptor_sets[i];
-        buffer_info.buffer = uniform_buffers[i];
+
+        uniform_buffer_info.buffer = uniform_buffers[i];
         uniform_buffer_write.dstSet = compute_descriptor_sets[i];
 
-        std::vector<VkWriteDescriptorSet> writes = {tlas_write, storage_image_write, uniform_buffer_write};
+        storage_buffer_info.buffer = storage_buffers[i];
+        storage_buffer_write.dstSet = compute_descriptor_sets[i];
+
+        std::vector<VkWriteDescriptorSet> writes = {tlas_write, storage_image_write, uniform_buffer_write, storage_buffer_write};
 
         vkUpdateDescriptorSets(logical_device, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
     }

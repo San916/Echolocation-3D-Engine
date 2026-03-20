@@ -47,16 +47,11 @@ void create_uniform_buffers(
 void update_uniform_buffer(
     uint32_t frame_index,
     VkExtent2D swap_chain_extent,
-    const std::vector<glm::mat4>& transforms,
     glm::vec3 camera_position,
     glm::vec2 camera_rotation,
-    const std::vector<glm::vec4>& sound_waves,
     std::vector<void*>& uniform_buffers_mapped
 ) {
     UniformBufferObject uniform_buffer{};
-    for (size_t i = 0; i < transforms.size() && i < MAX_OBJECTS; i++) {
-        uniform_buffer.model[i] = transforms[i];
-    }
 
     glm::vec3 camera_direction;
     camera_direction.x = cos(glm::radians(camera_rotation.x)) * cos(glm::radians(camera_rotation.y));
@@ -68,10 +63,6 @@ void update_uniform_buffer(
     uniform_buffer.proj = glm::perspective(glm::radians(75.0f), swap_chain_extent.width / (float)swap_chain_extent.height, 0.100f, 1000.0f);
     uniform_buffer.proj[1][1] *= -1;
     uniform_buffer.position = glm::vec4(camera_position, 1.0f);
-
-    for (size_t i = 0; i < MAX_SOUND_WAVES; i++) {
-        uniform_buffer.sound_waves[i] = (i < sound_waves.size()) ? sound_waves[i] : glm::vec4(0.0f, 0.0f, 0.0f, -1.0f);
-    }
 
     memcpy(uniform_buffers_mapped[frame_index], &uniform_buffer, sizeof(uniform_buffer));
 }

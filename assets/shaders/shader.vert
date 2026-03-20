@@ -5,12 +5,15 @@ layout(push_constant) uniform PushConstants {
 } push_constants;
 
 layout(binding = 0) uniform UniformBufferObject {
-    mat4 model[16];
     mat4 view;
     mat4 proj;
     vec4 position;
-    vec4 sound_waves[16];
 } ubo;
+
+layout(binding = 2) readonly buffer StorageBufferObject {
+    mat4 model[16];
+    vec4 sound_waves[16];
+} ssbo;
 
 layout(location = 0) in vec3 inPosition;
 
@@ -23,6 +26,6 @@ vec3 colors[3] = vec3[](
 );
 
 void main() {
-    gl_Position = ubo.proj * ubo.view * ubo.model[push_constants.obj_index] * vec4(inPosition, 1.0);
+    gl_Position = ubo.proj * ubo.view * ssbo.model[push_constants.obj_index] * vec4(inPosition, 1.0);
     frag_color = colors[1];
 }

@@ -20,6 +20,7 @@
 #include <vulkan_object_loading.h>
 #include <vulkan_physical_device.h>
 #include <vulkan_scene.h>
+#include <vulkan_storage_buffer.h>
 #include <vulkan_storage_image.h>
 #include <vulkan_swap_chain.h>
 #include <vulkan_uniform_buffer.h>
@@ -129,11 +130,21 @@ void VulkanHandle::draw_frame() {
     }
 
     const std::vector<VulkanObject*> objects = scene->get_objects();
+        std::vector<VkAccelerationStructureKHR> blases;
     std::vector<glm::mat4> transforms;
     for (size_t i = 0; i < objects.size(); i++) {
+        blases.push_back(objects[i]->get_blas());
         transforms.push_back(objects[i]->get_model_matrix());
     }
-    update_uniform_buffer(frame_index, swap_chain_extent, transforms, camera_position, camera_rotation, sound_waves, uniform_buffers_mapped);
+
+    update_uniform_buffer(frame_index, swap_chain_extent, camera_position, camera_rotation, uniform_buffers_mapped);
+    update_storage_buffer(frame_index, transforms, sound_waves, storage_buffers_mapped);
+    update_top_level_acceleration_structure(
+        logical_device, physical_device,
+        command_pool, graphics_queue,
+        blases, transforms,
+        tlas
+    );
 
     VkSemaphore render_semaphore = render_semaphores[swap_chain_image_index];
 
@@ -242,26 +253,32 @@ VulkanHandle::VulkanHandle() {
         logical_device, physical_device, MAX_FRAMES_IN_FLIGHT, 
         uniform_buffers, uniform_buffers_memory, uniform_buffers_mapped
     );
+    create_storage_buffers(
+        logical_device, physical_device, MAX_FRAMES_IN_FLIGHT, 
+        storage_buffers, storage_buffers_memory, storage_buffers_mapped
+    );
     create_graphics_descriptor_pool(logical_device, MAX_FRAMES_IN_FLIGHT, graphics_descriptor_pool);
     create_compute_descriptor_pool(logical_device, MAX_FRAMES_IN_FLIGHT, compute_descriptor_pool);
     create_graphics_descriptor_sets(
         logical_device, 
         MAX_FRAMES_IN_FLIGHT, 
         graphics_descriptor_pool, 
-        uniform_buffers, 
         storage_image_sampler, 
         storage_image_view, 
+        uniform_buffers, 
+        storage_buffers,
         graphics_descriptor_set_layout, 
         graphics_descriptor_sets
     );
     create_compute_descriptor_sets(
-        logical_device, 
-        MAX_FRAMES_IN_FLIGHT, 
-        compute_descriptor_pool, 
-        tlas, 
-        storage_image_view, 
-        uniform_buffers, 
-        compute_descriptor_set_layout, 
+        logical_device,
+        MAX_FRAMES_IN_FLIGHT,
+        compute_descriptor_pool,
+        tlas,
+        storage_image_view,
+        uniform_buffers,
+        storage_buffers,
+        compute_descriptor_set_layout,
         compute_descriptor_sets
     );
     create_command_buffers(logical_device, command_pool, command_buffers, MAX_FRAMES_IN_FLIGHT);
@@ -297,6 +314,11 @@ VulkanHandle::~VulkanHandle() {
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         vkDestroyBuffer(logical_device, uniform_buffers[i], nullptr);
         vkFreeMemory(logical_device, uniform_buffers_memory[i], nullptr);
+    }
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        vkDestroyBuffer(logical_device, storage_buffers[i], nullptr);
+        vkFreeMemory(logical_device, storage_buffers_memory[i], nullptr);
     }
 
     vkDestroyDescriptorPool(logical_device, compute_descriptor_pool, nullptr);

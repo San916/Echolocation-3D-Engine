@@ -64,13 +64,17 @@ private:
     VkFormat storage_image_format;
     VkSampler storage_image_sampler;
 
+    std::vector<VkBuffer> storage_buffers;
+    std::vector<VkDeviceMemory> storage_buffers_memory;
+    std::vector<void*> storage_buffers_mapped;
+    std::vector<glm::vec4> sound_waves;
+
     std::vector<VkBuffer> uniform_buffers;
     std::vector<VkDeviceMemory> uniform_buffers_memory;
     std::vector<void*> uniform_buffers_mapped;
     glm::vec3 camera_position = {0.0f, 0.0f, 0.0f};
     glm::vec2 camera_rotation = {90.0f, 0.0f};
     glm::vec2 last_mouse_position = {0.0f, 0.0f};
-    std::vector<glm::vec4> sound_waves;
     bool q_held_down = false;
     bool initial_mouse_position_set = false;
 

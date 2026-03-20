@@ -13,9 +13,10 @@ void create_graphics_descriptor_sets(
     VkDevice logical_device, 
     size_t max_frames_in_flight, 
     VkDescriptorPool graphics_descriptor_pool, 
-    const std::vector<VkBuffer>& uniform_buffers, 
     VkSampler& storage_image_sampler, 
     const VkImageView storage_image_view, 
+    const std::vector<VkBuffer>& uniform_buffers, 
+    const std::vector<VkBuffer>& storage_buffers,
     const VkDescriptorSetLayout& graphics_descriptor_set_layout, 
     std::vector<VkDescriptorSet>& graphics_descriptor_sets
 );
@@ -26,6 +27,7 @@ void create_compute_descriptor_sets(
     const VkAccelerationStructureKHR& tlas, 
     const VkImageView storage_image_view, 
     const std::vector<VkBuffer>& uniform_buffers, 
+    const std::vector<VkBuffer>& storage_buffers, 
     const VkDescriptorSetLayout& compute_descriptor_set_layout, 
     std::vector<VkDescriptorSet>& compute_descriptor_sets
 );

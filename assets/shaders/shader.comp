@@ -8,12 +8,15 @@ layout(binding = 0) uniform accelerationStructureEXT tlas;
 layout(binding = 1, rgba8) uniform image2D storage_image;
 
 layout(binding = 2) uniform UniformBufferObject {
-    mat4 model[16];
     mat4 view;
     mat4 proj;
     vec4 position;
-    vec4 sound_waves[16];
 } ubo;
+
+layout(binding = 3) readonly buffer StorageBufferObject {
+    mat4 model[16];
+    vec4 sound_waves[16];
+} ssbo;
 
 vec3 get_ray_dir(ivec2 viewport_pos, ivec2 image_size) {
     vec2 normalized_device_coords = 2.0 * (vec2(viewport_pos) + 0.5) / vec2(image_size) - 1.0;
@@ -98,16 +101,16 @@ void main() {
 
     float intensity = 0.0;
     for (int i = 0; i < 16; i++) {
-        float wave_radius = ubo.sound_waves[i].w;
+        float wave_radius = ssbo.sound_waves[i].w;
         if (wave_radius < 0.0) continue;
-        vec3 wave_origin = ubo.sound_waves[i].xyz;
+        vec3 wave_origin = ssbo.sound_waves[i].xyz;
 
         vec3 surface_to_source = wave_origin - hit_point;
         float dist_to_source = length(surface_to_source);
 
         float round_trip_dist = dist_to_source + dist_from_surface;
         round_trip_dist /= 2;
-        if (abs(round_trip_dist - wave_radius) > 1.0) continue;
+        if (abs(round_trip_dist - wave_radius) > 2.0) continue;
         float decay_val = wave_radius > round_trip_dist ? exp(-abs(round_trip_dist - wave_radius)) : 0.0;
 
         if (is_ray_obstructed(wave_origin, hit_point)) continue;
