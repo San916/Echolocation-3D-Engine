@@ -47,6 +47,12 @@ private:
     VkPipelineLayout compute_pipeline_layout;
     VkPipeline compute_pipeline;
 
+    VkDescriptorPool post_process_descriptor_pool;
+    std::vector<VkDescriptorSet> post_process_descriptor_sets;
+    VkDescriptorSetLayout post_process_descriptor_set_layout;
+    VkPipelineLayout post_process_pipeline_layout;
+    VkPipeline post_process_pipeline;
+
     const VkExtent2D dispatch_group_size = {16, 16};
 
     VkCommandPool command_pool;
@@ -64,6 +70,11 @@ private:
     VkFormat storage_image_format;
     VkSampler storage_image_sampler;
 
+    VkImage object_id_image;
+    VkDeviceMemory object_id_image_memory;
+    VkImageView object_id_image_view;
+    VkFormat object_id_image_format;
+
     std::vector<VkBuffer> storage_buffers;
     std::vector<VkDeviceMemory> storage_buffers_memory;
     std::vector<void*> storage_buffers_mapped;
@@ -78,6 +89,7 @@ private:
     bool q_held_down = false;
     bool initial_mouse_position_set = false;
 
+    int prev_frame = -1;
     size_t frame_index = 0;
     std::vector<VkSemaphore> acquire_semaphores;
     std::vector<VkSemaphore> render_semaphores;
