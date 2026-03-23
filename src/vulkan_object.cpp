@@ -23,9 +23,12 @@ VulkanObject::VulkanObject(
 ) : file_name(file_name) {
     this->logical_device = logical_device;
 
-    position = glm::vec3(0.0f);
-    rotation = glm::vec3(0.0f);
-    scale = glm::vec3(1.0f);
+    properties.position = glm::vec3(0.0f);
+    properties.rotation = glm::vec3(0.0f);
+    properties.scale = glm::vec3(1.0f);
+
+    properties.visible = 1;
+    properties.emitting = 0;
 
     init_object(physical_device, command_pool, graphics_queue);
 }
@@ -55,7 +58,7 @@ void VulkanObject::init_object(VkPhysicalDevice physical_device, VkCommandPool c
     );
 }
 
-glm::mat4 VulkanObject::get_model_matrix() const {
+glm::mat4 ObjectProperties::get_model_matrix() const {
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::translate(model, position);
     model = glm::rotate(model, glm::radians(rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));

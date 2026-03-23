@@ -13,6 +13,19 @@
 #include <vulkan_index_buffer.h>
 #include <vulkan_vertex_buffer.h>
 
+struct ObjectProperties {
+    glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f);
+    glm::vec3 rotation = glm::vec3(0.0f, 0.0f, 0.0f);
+    glm::vec3 scale = glm::vec3(1.0f, 1.0f, 1.0f);
+
+    int visible = 1;
+    int emitting = 0;
+    float emit_cooldown = 0.0f;
+    float emit_interval = 0.5f;
+
+    glm::mat4 get_model_matrix() const;
+};
+
 class VulkanObject {
 private:
     std::string file_name;
@@ -32,9 +45,7 @@ private:
 
     void init_object(VkPhysicalDevice physical_device, VkCommandPool command_pool, VkQueue graphics_queue);
 public:
-    glm::vec3 position;
-    glm::vec3 rotation;
-    glm::vec3 scale;
+    ObjectProperties properties;
 
     VulkanObject(
         const std::string& file_name,
@@ -48,7 +59,6 @@ public:
     VulkanObject(const VulkanObject&) = delete;
     VulkanObject& operator=(const VulkanObject&) = delete;
 
-    glm::mat4 get_model_matrix() const;
     VkAccelerationStructureKHR get_blas() const { return blas; }
     VkBuffer get_vertex_buffer() const { return vertex_buffer; }
     VkBuffer get_index_buffer() const { return index_buffer; }

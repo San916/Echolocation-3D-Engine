@@ -131,20 +131,20 @@ void VulkanHandle::draw_frame() {
 
     const std::vector<VulkanObject*> objects = scene->get_objects();
     std::vector<VkAccelerationStructureKHR> blases;
-    std::vector<glm::mat4> transforms;
+    std::vector<ObjectProperties> properties;
     for (size_t i = 0; i < objects.size(); i++) {
         blases.push_back(objects[i]->get_blas());
-        transforms.push_back(objects[i]->get_model_matrix());
+        properties.push_back(objects[i]->properties);
     }
 
     int selected_object_index = prev_frame == -1 ? -1 : ((StorageBufferObject*)storage_buffers_mapped[prev_frame])->selected_object_index;
 
     update_uniform_buffer(frame_index, swap_chain_extent, camera_position, camera_rotation, uniform_buffers_mapped);
-    update_storage_buffer(frame_index, selected_object_index, transforms, sound_waves, storage_buffers_mapped);
+    update_storage_buffer(frame_index, selected_object_index, properties, sound_waves, storage_buffers_mapped);
     update_top_level_acceleration_structure(
         logical_device, physical_device,
         command_pool, graphics_queue,
-        blases, transforms,
+        blases, properties,
         tlases[frame_index]
     );
 
@@ -242,19 +242,19 @@ VulkanHandle::VulkanHandle() {
     create_frame_buffers(logical_device, swap_chain_image_views, swap_chain_extent, render_pass, frame_buffers);
     create_command_pool(logical_device, queue_family_indices.graphics_family_index.value(), command_pool);
     create_storage_image(
-        logical_device, physical_device, 
-        command_pool, graphics_queue, 
+        logical_device, physical_device,
+        command_pool, graphics_queue,
         swap_chain_extent,
         VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
-        storage_image, storage_image_memory, 
+        storage_image, storage_image_memory,
         storage_image_view
     );
     create_storage_image(
-        logical_device, physical_device, 
-        command_pool, graphics_queue, 
+        logical_device, physical_device,
+        command_pool, graphics_queue,
         swap_chain_extent,
         VK_FORMAT_R32_SINT, VK_IMAGE_USAGE_STORAGE_BIT,
-        object_id_image, object_id_image_memory, 
+        object_id_image, object_id_image_memory,
         object_id_image_view
     );
 
@@ -262,10 +262,10 @@ VulkanHandle::VulkanHandle() {
     const std::vector<VulkanObject*> objects = scene->get_objects();
 
     std::vector<VkAccelerationStructureKHR> blases;
-    std::vector<glm::mat4> transforms;
+    std::vector<ObjectProperties> properties;
     for (size_t i = 0; i < objects.size(); i++) {
         blases.push_back(objects[i]->get_blas());
-        transforms.push_back(objects[i]->get_model_matrix());
+        properties.push_back(objects[i]->properties);
     }
 
     tlas_buffer.resize(MAX_FRAMES_IN_FLIGHT);
@@ -275,7 +275,7 @@ VulkanHandle::VulkanHandle() {
         create_top_level_acceleration_structure(
             logical_device, physical_device,
             command_pool, graphics_queue,
-            blases, transforms,
+            blases, properties,
             tlas_buffer[i], tlas_buffer_memory[i], tlases[i]
         );
     }
@@ -462,6 +462,17 @@ void VulkanHandle::run() {
             ),
             sound_waves.end()
         );
+
+        std::vector<VulkanObject*> objects = scene->get_objects();
+        for (VulkanObject* obj : objects) {
+            if (!obj->properties.emitting) continue;
+            obj->properties.emit_cooldown -= delta_time;
+            if (obj->properties.emit_cooldown <= 0.0f) {
+                if (sound_waves.size() >= MAX_SOUND_WAVES) continue;
+                sound_waves.push_back(glm::vec4(obj->properties.position, 0.0f));
+                obj->properties.emit_cooldown = obj->properties.emit_interval;
+            }
+        }
 
         bool q_pressed = glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS;
         if (q_pressed && !q_held_down) {

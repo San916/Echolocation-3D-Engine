@@ -1,7 +1,7 @@
 #ifndef VULKAN_STORAGE_BUFFER_H
 #define VULKAN_STORAGE_BUFFER_H
 
-#define MAX_SOUND_WAVES 16
+#define MAX_SOUND_WAVES 64
 #define MAX_OBJECTS 16
 
 #include <iostream>
@@ -12,9 +12,13 @@
 #include <vulkan/vulkan.h>
 #include <glm/glm.hpp>
 
+typedef struct ObjectProperties ObjectProperties;
+
 struct StorageBufferObject {
     glm::mat4 model[MAX_OBJECTS];
     glm::vec4 sound_waves[MAX_SOUND_WAVES];
+    int visible[MAX_OBJECTS];
+    int emitting[MAX_OBJECTS];
     int selected_object_index = -1;
 };
 
@@ -29,7 +33,7 @@ void create_storage_buffers(
 void update_storage_buffer(
     uint32_t frame_index,
     int selected_object_index,
-    const std::vector<glm::mat4>& transforms,
+    const std::vector<ObjectProperties> properties,
     const std::vector<glm::vec4>& sound_waves,
     std::vector<void*>& storage_buffers_mapped
 );

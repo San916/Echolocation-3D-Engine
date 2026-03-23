@@ -29,12 +29,26 @@ void Scene::parse_object_property(const char* buf) {
         throw std::runtime_error("parse_object_property(): objects.size() must be greater than 0!");
     }
     glm::vec3 value;
-    if (std::sscanf(buf, "%*c %f %f %f", &value.x, &value.y, &value.z) != 3) {
-        throw std::runtime_error("parse_object_property(): Incorrect object property format!");
+    glm::ivec3 value_int;
+    if (std::sscanf(buf, "%*c %f %f %f", &value.x, &value.y, &value.z) == 3) {
+        if (buf[0] == 'p') objects[objects.size() - 1]->properties.position = value;
+        else if (buf[0] == 'r') objects[objects.size() - 1]->properties.rotation = value;
+        else if (buf[0] == 's') objects[objects.size() - 1]->properties.scale = value;
+        else {
+            throw std::runtime_error("parse_object_property(): Incorrect object property format!");
+        }
+        return;
     }
-    if (buf[0] == 'p') objects[objects.size() - 1]->position = value;
-    if (buf[0] == 'r') objects[objects.size() - 1]->rotation = value;
-    if (buf[0] == 's') objects[objects.size() - 1]->scale = value;
+
+    if (std::sscanf(buf, "%*c %d", &value_int.x) == 1) {
+        if (buf[0] == 'v') objects[objects.size() - 1]->properties.visible = value_int.x;
+        else if (buf[0] == 'e') objects[objects.size() - 1]->properties.emitting = value_int.x;
+        else {
+            throw std::runtime_error("parse_object_property(): Incorrect object property format!");
+        }
+        return;
+    }
+    throw std::runtime_error("parse_object_property(): Incorrect object property format!");
 }
 
 Scene::Scene(
@@ -84,7 +98,7 @@ void Scene::load_scene_file() {
         if (len > 1) {
             if (ptr[0] == 'o' && ptr[1] == ' ') {
                 parse_object_file(ptr);
-            } else if ((ptr[0] == 'p' || ptr[0] == 'r' || ptr[0] == 's') && ptr[1] == ' ') {
+            } else if ((ptr[0] == 'p' || ptr[0] == 'r' || ptr[0] == 's' || ptr[0] == 'v' || ptr[0] == 'e') && ptr[1] == ' ') {
                 parse_object_property(ptr);
             }
         }

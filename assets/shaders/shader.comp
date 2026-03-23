@@ -15,7 +15,9 @@ layout(binding = 2) uniform UniformBufferObject {
 
 layout(binding = 3) buffer StorageBufferObject {
     mat4 model[16];
-    vec4 sound_waves[16];
+    vec4 sound_waves[64];
+    int visible[16];
+    int emitting[16];
     int selected_object_index;
 } ssbo;
 
@@ -70,7 +72,7 @@ bool is_ray_obstructed(vec3 ray_origin, vec3 ray_target) {
         ray_query, 
         tlas, 
         gl_RayFlagsNoneEXT, 
-        0xFF, 
+        0x01, 
         ray_origin, 
         0.01, 
         normalize(ray_dir), 
@@ -96,14 +98,16 @@ void main() {
 
     float dist_from_surface = get_ray_hit(ray_origin, ray_dir, object_id);
     if (viewport_pos == image_size / 2) {
+        if (dist_from_surface > 5.0 || ssbo.visible[object_id] == 0) {
+            object_id = -1;
+        }
         ssbo.selected_object_index = object_id;
     }
 
     imageStore(object_id_image, viewport_pos, ivec4(object_id, 0, 0, 0));
 
     vec4 color = vec4(0.0, 0.0, 0.0, 1.0);
-
-    if (dist_from_surface < 0.0) {
+    if (dist_from_surface < 0.0 || ssbo.visible[object_id] == 0) {
         imageStore(storage_image, viewport_pos, color);
         return;
     }

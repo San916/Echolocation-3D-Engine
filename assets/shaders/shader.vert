@@ -12,7 +12,9 @@ layout(binding = 0) uniform UniformBufferObject {
 
 layout(binding = 2) readonly buffer StorageBufferObject {
     mat4 model[16];
-    vec4 sound_waves[16];
+    vec4 sound_waves[64];
+    int visible[16];
+    int emitting[16];
     int selected_object_index;
 } ssbo;
 

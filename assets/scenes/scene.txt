@@ -7,3 +7,4 @@ o ./../assets/models/cube.obj
 p 2.0 1.5 0.0
 r 0.0 45.0 0.0
 s 0.5 0.5 0.5
+v 0

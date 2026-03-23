@@ -6,6 +6,7 @@
 #include <vulkan/vulkan.h>
 #include <glm/glm.hpp>
 
+#include <vulkan_object.h>
 #include <vulkan_storage_buffer.h>
 #include <vulkan_utils.h>
 
@@ -46,7 +47,7 @@ void create_storage_buffers(
 void update_storage_buffer(
     uint32_t frame_index,
     int selected_object_index,
-    const std::vector<glm::mat4>& transforms,
+    const std::vector<ObjectProperties> properties,
     const std::vector<glm::vec4>& sound_waves,
     std::vector<void*>& storage_buffers_mapped
 ) {
@@ -54,8 +55,10 @@ void update_storage_buffer(
 
     storage_buffer.selected_object_index = selected_object_index;
 
-    for (size_t i = 0; i < transforms.size() && i < MAX_OBJECTS; i++) {
-        storage_buffer.model[i] = transforms[i];
+    for (size_t i = 0; i < properties.size() && i < MAX_OBJECTS; i++) {
+        storage_buffer.visible[i] = properties[i].visible;
+        storage_buffer.emitting[i] = properties[i].emitting;
+        storage_buffer.model[i] = properties[i].get_model_matrix();
     }
 
     for (size_t i = 0; i < MAX_SOUND_WAVES; i++) {

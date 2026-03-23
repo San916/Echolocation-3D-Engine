@@ -10,6 +10,8 @@
 
 #include <vulkan_vertex_buffer.h>
 
+typedef struct ObjectProperties ObjectProperties;
+
 void create_bottom_level_acceleration_structure(
     VkDevice logical_device, VkPhysicalDevice physical_device, 
     VkCommandPool command_pool, VkQueue graphics_queue, 
@@ -21,14 +23,15 @@ void create_top_level_acceleration_structure(
     VkDevice logical_device, VkPhysicalDevice physical_device,
     VkCommandPool command_pool, VkQueue graphics_queue,
     const std::vector<VkAccelerationStructureKHR>& blases,
-    const std::vector<glm::mat4>& transforms,
+    const std::vector<ObjectProperties>& properties,
     VkBuffer& tlas_buffer, VkDeviceMemory& tlas_buffer_memory, VkAccelerationStructureKHR& tlas
 );
+
 void update_top_level_acceleration_structure(
     VkDevice logical_device, VkPhysicalDevice physical_device,
     VkCommandPool command_pool, VkQueue graphics_queue,
     const std::vector<VkAccelerationStructureKHR>& blases,
-    const std::vector<glm::mat4>& transforms,
+    const std::vector<ObjectProperties>& properties,
     VkAccelerationStructureKHR& tlas
 );
 void cleanup_acceleration_structure(VkDevice logical_device, VkBuffer& as_buffer, VkDeviceMemory& as_buffer_memory, VkAccelerationStructureKHR& acceleration_structure);

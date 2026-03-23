@@ -9,6 +9,7 @@
 
 #include <vulkan_acceleration_structure.h>
 #include <vulkan_command_buffer.h>
+#include <vulkan_object.h>
 #include <vulkan_utils.h>
 #include <vulkan_vertex_buffer.h>
 
@@ -235,7 +236,7 @@ static void create_instance_buffer(
 // EFFECTS: Sets all the fields in tlas_instance, used to create the instance buffer
 //     This instance will reference the provided bottom level acceleration structure
 //     Use the given transform matrix's transpose to convert from VK to GL
-static void create_tlas_instance(VkDevice logical_device, const VkAccelerationStructureKHR& blas, const glm::mat4& transform, VkAccelerationStructureInstanceKHR& tlas_instance) {
+static void create_tlas_instance(VkDevice logical_device, const VkAccelerationStructureKHR& blas, const ObjectProperties& properties, VkAccelerationStructureInstanceKHR& tlas_instance) {
     PFN_vkGetAccelerationStructureDeviceAddressKHR vkGetAccelerationStructureDeviceAddressKHR =
         (PFN_vkGetAccelerationStructureDeviceAddressKHR)load_function(logical_device, "vkGetAccelerationStructureDeviceAddressKHR");
 
@@ -245,6 +246,7 @@ static void create_tlas_instance(VkDevice logical_device, const VkAccelerationSt
     blas_address_info.accelerationStructure = blas;
     VkDeviceAddress blas_address = vkGetAccelerationStructureDeviceAddressKHR(logical_device, &blas_address_info);
 
+    glm::mat4 transform = properties.get_model_matrix();
     VkTransformMatrixKHR vk_transform{};
     for (int row = 0; row < 3; row++)
         for (int col = 0; col < 4; col++)
@@ -253,7 +255,7 @@ static void create_tlas_instance(VkDevice logical_device, const VkAccelerationSt
     tlas_instance = VkAccelerationStructureInstanceKHR{};
     tlas_instance.transform = vk_transform;
     tlas_instance.instanceCustomIndex = 0;
-    tlas_instance.mask = 0xFF;
+    tlas_instance.mask = properties.emitting ? 0x02 : 0x01;
     tlas_instance.instanceShaderBindingTableRecordOffset = 0;
     tlas_instance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
     tlas_instance.accelerationStructureReference = blas_address;
@@ -268,13 +270,13 @@ void create_top_level_acceleration_structure(
     VkDevice logical_device, VkPhysicalDevice physical_device,
     VkCommandPool command_pool, VkQueue graphics_queue,
     const std::vector<VkAccelerationStructureKHR>& blases,
-    const std::vector<glm::mat4>& transforms,
+    const std::vector<ObjectProperties>& properties,
     VkBuffer& tlas_buffer, VkDeviceMemory& tlas_buffer_memory, VkAccelerationStructureKHR& tlas
 ) {
     std::vector<VkAccelerationStructureInstanceKHR> instances;
     for (size_t i = 0; i < blases.size(); i++) {
         VkAccelerationStructureInstanceKHR instance{};
-        create_tlas_instance(logical_device, blases[i], transforms[i], instance);
+        create_tlas_instance(logical_device, blases[i], properties[i], instance);
         instance.instanceCustomIndex = static_cast<uint32_t>(i);
         instances.push_back(instance);
     }
@@ -332,7 +334,7 @@ void update_top_level_acceleration_structure(
     VkDevice logical_device, VkPhysicalDevice physical_device,
     VkCommandPool command_pool, VkQueue graphics_queue,
     const std::vector<VkAccelerationStructureKHR>& blases,
-    const std::vector<glm::mat4>& transforms,
+    const std::vector<ObjectProperties>& properties,
     VkAccelerationStructureKHR& tlas
 ) {
     PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR =
@@ -343,7 +345,8 @@ void update_top_level_acceleration_structure(
     std::vector<VkAccelerationStructureInstanceKHR> instances;
     for (size_t i = 0; i < blases.size(); i++) {
         VkAccelerationStructureInstanceKHR instance{};
-        create_tlas_instance(logical_device, blases[i], transforms[i], instance);
+        create_tlas_instance(logical_device, blases[i], properties[i], instance);
+        instance.instanceCustomIndex = static_cast<uint32_t>(i);
         instances.push_back(instance);
     }
 
