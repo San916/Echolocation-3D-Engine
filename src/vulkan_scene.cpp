@@ -26,6 +26,7 @@ void Scene::parse_object_file(const char* buf) {
     objects.push_back(new_object);
 }
 
+// EFFECTS: Reads x values from buf as float, returns as a vec3
 static glm::vec3 read_x_values(const char* buf, int x) {
     glm::vec3 value;
     if (x == 1 && sscanf(buf, "%f", &value.x) != 1 ||
@@ -45,69 +46,53 @@ void Scene::parse_object_property(const char* buf) {
     glm::vec3 value;
     glm::ivec3 value_int;
     
-    printf("BUF %s\n", buf);
-
     if (buf[1] == ' ') {
         switch (buf[0]) {
             case 'p':
                 value = read_x_values(buf + 2, 3);
                 objects[objects.size() - 1]->properties.position = value;
+                return;
             case 'r':
                 value = read_x_values(buf + 2, 3);
                 objects[objects.size() - 1]->properties.rotation = value;
+                return;
             case 's':
                 value = read_x_values(buf + 2, 3);
                 objects[objects.size() - 1]->properties.scale = value;
+                return;
             case 'v':
                 value = read_x_values(buf + 2, 1);
                 objects[objects.size() - 1]->properties.visible = static_cast<int>(value.x);
+                return;
             case 'e':
                 value = read_x_values(buf + 2, 1);
                 objects[objects.size() - 1]->properties.emitting = static_cast<int>(value.x);
+                return;
             default:
-                throw std::runtime_error("parse_object_property(): Incorrect object property format!1");
+                throw std::runtime_error("parse_object_property(): Incorrect object property format!");
         }
-        return;
     }
     
     if (buf[2] == ' ') {
         switch (buf[0]) {
             case 'p':
-                value = read_x_values(buf + 2, 3);
-                objects[objects.size() - 1]->properties.position = value;
-            case 'r':
-                value = read_x_values(buf + 2, 3);
-                objects[objects.size() - 1]->properties.rotation = value;
-            case 's':
-                value = read_x_values(buf + 2, 3);
-                objects[objects.size() - 1]->properties.scale = value;
-            case 'v':
-                value = read_x_values(buf + 2, 1);
-                objects[objects.size() - 1]->properties.visible = static_cast<int>(value.x);
-            case 'e':
-                value = read_x_values(buf + 2, 1);
-                objects[objects.size() - 1]->properties.emitting = static_cast<int>(value.x);
+                switch (buf[1]) {
+                    case 'e':
+                        value = read_x_values(buf + 2, 1);
+                        objects[objects.size() - 1]->properties.physics_enabled = static_cast<int>(value.x);
+                        return;
+                    case 'm':
+                        value = read_x_values(buf + 2, 1);
+                        objects[objects.size() - 1]->properties.mass = value.x;
+                        return;
+                    default:
+                        throw std::runtime_error("parse_object_property(): Incorrect object property format!");
+                }
             default:
-                throw std::runtime_error("parse_object_property(): Incorrect object property format!1");
+                throw std::runtime_error("parse_object_property(): Incorrect object property format!");
         }
-        return;
     }
 
-    if (std::sscanf(buf, "%*c%*c %d", &value_int.x) == 1) {
-        if (buf[0] == 'p' && buf[1] == 'e') objects[objects.size() - 1]->properties.physics_enabled = value_int.x;
-        else {
-            throw std::runtime_error("parse_object_property(): Incorrect object property format!3");
-        }
-        return;
-    }
-    if (std::sscanf(buf, "%*c%*c %f", &value.x) == 1) {
-        printf("HERE3\n");
-        if (buf[0] == 'p' && buf[1] == 'm') objects[objects.size() - 1]->properties.mass = value.x;
-        else {
-            throw std::runtime_error("parse_object_property(): Incorrect object property format!2");
-        }
-        return;
-    }
     throw std::runtime_error("parse_object_property(): Incorrect object property format!4");
 }
 

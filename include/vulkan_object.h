@@ -65,6 +65,7 @@ public:
     VkAccelerationStructureKHR get_blas() const { return blas; }
     VkBuffer get_vertex_buffer() const { return vertex_buffer; }
     VkBuffer get_index_buffer() const { return index_buffer; }
+    const std::vector<Vertex>& get_vertices() const { return vertices; }
     const std::vector<uint32_t>& get_indices() const { return indices; }
 };
 
