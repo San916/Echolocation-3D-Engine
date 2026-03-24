@@ -23,6 +23,9 @@ struct ObjectProperties {
     float emit_cooldown = 0.0f;
     float emit_interval = 0.5f;
 
+    int physics_enabled = 1;
+    float mass = 1.0f;
+
     glm::mat4 get_model_matrix() const;
 };
 
@@ -62,6 +65,7 @@ public:
     VkAccelerationStructureKHR get_blas() const { return blas; }
     VkBuffer get_vertex_buffer() const { return vertex_buffer; }
     VkBuffer get_index_buffer() const { return index_buffer; }
+    const std::vector<Vertex>& get_vertices() const { return vertices; }
     const std::vector<uint32_t>& get_indices() const { return indices; }
 };
 

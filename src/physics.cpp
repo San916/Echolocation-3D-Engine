@@ -1,0 +1,138 @@
+#include <iostream>
+
+#include <vector>
+
+#include <vulkan_object.h>
+
+#include <physics.h>
+
+#include <Jolt/Jolt.h>
+#include <Jolt/Core/Factory.h>
+#include <Jolt/Core/JobSystemThreadPool.h>
+#include <Jolt/Core/TempAllocator.h>
+#include <Jolt/Physics/Body/BodyCreationSettings.h>
+#include <Jolt/Physics/Body/BodyInterface.h>
+#include <Jolt/Physics/Collision/ObjectLayer.h>
+#include <Jolt/Physics/Collision/BroadPhase/BroadPhaseLayer.h>
+#include <Jolt/Physics/PhysicsSystem.h>
+#include <Jolt/RegisterTypes.h>
+
+#include <Jolt/Physics/Collision/Shape/BoxShape.h>
+#include <Jolt/Physics/Collision/Shape/ConvexHullShape.h>
+#include <Jolt/Physics/Collision/Shape/MeshShape.h>
+
+PhysicsHandle::PhysicsHandle() {
+    JPH::RegisterDefaultAllocator();
+    JPH::Factory::sInstance = new JPH::Factory();
+    JPH::RegisterTypes();
+
+    physics_temp_allocator = new JPH::TempAllocatorImpl({ 10 * 1024 * 1024 });
+    physics_job_system = new JPH::JobSystemThreadPool(JPH::cMaxPhysicsJobs, JPH::cMaxPhysicsBarriers, std::thread::hardware_concurrency() - 1);
+    physics_system = new JPH::PhysicsSystem;
+    physics_system->Init(
+        physics_max_bodies, physics_num_mutexes, physics_max_body_pairs, physics_max_contact_constraints,
+        bp_layer_interface, obj_vs_bp_layer_filter, obj_vs_obj_filter
+    );
+
+    physics_system->SetGravity(JPH::Vec3(0.0f, -9.81f, 0.0f));
+}
+
+PhysicsHandle::~PhysicsHandle() {
+    delete physics_system;
+    delete physics_job_system;
+    delete physics_temp_allocator;
+    JPH::UnregisterTypes();
+    delete JPH::Factory::sInstance;
+    JPH::Factory::sInstance = nullptr;
+}
+
+// MODIFIES: this->body_interface
+// EFFECTS: Adds the objects into the physics engine
+//     For each object, use the properties to determine the settings of the physics body creation
+//     Constructs a simple box fit for a 1x1x1 cube
+//     If mass = 0.0, the object is static, otherwise dynamic, with the given mass
+//     Constructs a ground as it doesnt exist in objects
+void PhysicsHandle::load_object_physics(const std::vector<VulkanObject*> objects) {
+    body_interface = &physics_system->GetBodyInterface();
+
+    for (const VulkanObject* obj : objects) {
+        const ObjectProperties& properties = obj->properties;
+
+        bool is_dynamic = properties.physics_enabled && properties.mass > 0.0f;
+
+        glm::vec3 rotation_rad = glm::radians(properties.rotation);
+        JPH::Quat rotation = JPH::Quat::sEulerAngles(JPH::Vec3(rotation_rad.x, rotation_rad.y, rotation_rad.z));
+
+        JPH::ShapeRefC shape;
+        if (is_dynamic) {
+            JPH::ConvexHullShapeSettings hull;
+            for (const auto& vertex : obj->get_vertices()) {
+                hull.mPoints.push_back(JPH::Vec3(
+                    vertex.pos.x * properties.scale.x,
+                    vertex.pos.y * properties.scale.y,
+                    vertex.pos.z * properties.scale.z
+                ));
+            }
+            shape = hull.Create().Get();
+        } else {
+            JPH::TriangleList triangles;
+            const auto& vertices = obj->get_vertices();
+            const auto& indices = obj->get_indices();
+            for (size_t i = 0; i + 2 < indices.size(); i += 3) {
+                const auto& v0 = vertices[indices[i]];
+                const auto& v1 = vertices[indices[i + 1]];
+                const auto& v2 = vertices[indices[i + 2]];
+                triangles.push_back(JPH::Triangle(
+                    JPH::Float3(v0.pos.x * properties.scale.x, v0.pos.y * properties.scale.y, v0.pos.z * properties.scale.z),
+                    JPH::Float3(v1.pos.x * properties.scale.x, v1.pos.y * properties.scale.y, v1.pos.z * properties.scale.z),
+                    JPH::Float3(v2.pos.x * properties.scale.x, v2.pos.y * properties.scale.y, v2.pos.z * properties.scale.z)
+                ));
+            }
+            JPH::MeshShapeSettings mesh(triangles);
+            shape = mesh.Create().Get();
+        }
+
+        JPH::BodyCreationSettings settings(
+            shape,
+            JPH::RVec3(properties.position.x, properties.position.y, properties.position.z),
+            rotation,
+            is_dynamic ? JPH::EMotionType::Dynamic : JPH::EMotionType::Static,
+            is_dynamic ? ObjLayers::DYNAMIC : ObjLayers::STATIC
+        );
+
+        if (is_dynamic) settings.mMassPropertiesOverride.mMass = properties.mass;
+
+        JPH::BodyID body_id = body_interface->CreateAndAddBody(settings, JPH::EActivation::Activate);
+
+        body_interface->SetRestitution(body_id, 1.0f);
+
+        physics_body_ids.push_back(body_id);
+    }
+
+    JPH::BoxShapeSettings ground_shape(JPH::Vec3(100.0f, 1.0f, 100.0f));
+    JPH::BodyCreationSettings ground_settings(
+        ground_shape.Create().Get(),
+        JPH::RVec3(0.0f, -1.0f, 0.0f),
+        JPH::Quat::sIdentity(),
+        JPH::EMotionType::Static,
+        ObjLayers::STATIC
+    );
+    body_interface->CreateAndAddBody(ground_settings, JPH::EActivation::DontActivate);
+}
+
+// MODIFIES: this, objects
+// EFFECTS: Updates the physics engine, then sets each objects properties using the updated values
+void PhysicsHandle::update(float delta_time, const std::vector<VulkanObject*> objects) {
+    physics_system->Update(delta_time, 5, physics_temp_allocator, physics_job_system);
+
+    for (size_t i = 0; i < objects.size(); i++) {
+        if (!objects[i]->properties.physics_enabled) continue;
+        JPH::RVec3 pos = body_interface->GetPosition(physics_body_ids[i]);
+
+        JPH::Quat rotation = body_interface->GetRotation(physics_body_ids[i]);
+        glm::quat glm_rotation(rotation.GetW(), rotation.GetX(), rotation.GetY(), rotation.GetZ());
+
+        objects[i]->properties.rotation = glm::degrees(glm::eulerAngles(glm_rotation));
+        objects[i]->properties.position = glm::vec3(pos.GetX(), pos.GetY(), pos.GetZ());
+    }
+}
