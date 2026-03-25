@@ -413,10 +413,10 @@ VulkanHandle::~VulkanHandle() {
 //     Creates a sound wave at position, then fetches ahead of time sound_wave_branching_factor reflections
 //     These sound waves start at radius equal to the negative of the distance between sound wave origin and reflected wave origin,
 //         so they 'start' propagating when the sound wave reaches the reflected point
-void VulkanHandle::spawn_wave(glm::vec3 position, int emitting_obj_id = -1) {
+void VulkanHandle::spawn_wave(glm::vec3 position, int ignore_index_1, int ignore_index_2) {
     if (sound_waves.size() < MAX_SOUND_WAVES) sound_waves.push_back({glm::vec4(position, 0.0f), 1.0f});
 
-    std::vector<glm::vec3> reflections = physics_handle->find_reflection_points(position, 8, 20.0f, emitting_obj_id);
+    std::vector<glm::vec3> reflections = physics_handle->find_reflection_points(position, 8, 20.0f, ignore_index_1, ignore_index_2);
     for (const glm::vec3& reflection : reflections) {
         if (sound_waves.size() >= MAX_SOUND_WAVES) break;
         sound_waves.push_back({glm::vec4(reflection, -glm::distance(position, reflection)), 0.3f});
@@ -513,9 +513,9 @@ void VulkanHandle::run() {
 
         glfwPollEvents();
 
-        std::vector<glm::vec3> collisions = physics_handle->update(delta_time / 5.0f, objects);
-        for (const glm::vec3& collision_pos : collisions) {
-            spawn_wave(collision_pos);
+        std::vector<CollisionProperties> collisions = physics_handle->update(delta_time / 2.0f, objects);
+        for (const CollisionProperties& collision : collisions) {
+            spawn_wave(collision.position, collision.ignore_index_1, collision.ignore_index_2);
         }
 
         draw_frame();

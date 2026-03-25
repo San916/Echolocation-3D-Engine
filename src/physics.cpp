@@ -40,7 +40,7 @@ PhysicsHandle::PhysicsHandle() {
     );
 
     physics_system->SetGravity(JPH::Vec3(0.0f, -9.81f, 0.0f));
-    physics_system->SetContactListener(&bullet_contact_listener);
+    physics_system->SetContactListener(&contact_listener);
 }
 
 PhysicsHandle::~PhysicsHandle() {
@@ -119,10 +119,10 @@ void PhysicsHandle::load_object_physics(const std::vector<VulkanObject*> objects
         body_interface->SetRestitution(body_id, 0.25f);
 
         physics_body_ids.push_back(body_id);
+        body_id_to_index[body_id.GetIndexAndSequenceNumber()] = (int)(physics_body_ids.size() - 1);
         if (properties.bullet) {
             bullet_body_ids.push_back(body_id);
             bullet_object_indices.push_back(physics_body_ids.size() - 1);
-            bullet_contact_listener.bullet_ids.insert(body_id.GetIndexAndSequenceNumber());
             body_interface->SetPosition(body_id, JPH::RVec3(0.0f, -1000.0f, 0.0f), JPH::EActivation::DontActivate);
             body_interface->DeactivateBody(body_id);
         }
@@ -159,11 +159,14 @@ void PhysicsHandle::fire_bullet(glm::vec3 position, glm::vec3 direction, const s
 // EFFECTS: 
 //     Creates num_rays uniformy distributed quasi-random rays using fibonacci sphere 
 //     Returns up to num_rays hit positions within max_dist, which will be act as sound wave reflections.
-std::vector<glm::vec3> PhysicsHandle::find_reflection_points(glm::vec3 origin, int num_rays, float max_dist, int obj_to_ignore = -1) {
+//     Will ignore the body_ids specified in ignore_index params, used when sound must propagate through objects during collision
+std::vector<glm::vec3> PhysicsHandle::find_reflection_points(glm::vec3 origin, int num_rays, float max_dist, int ignore_index_1, int ignore_index_2) {
     const JPH::NarrowPhaseQuery& query = physics_system->GetNarrowPhaseQuery();
     std::vector<glm::vec3> points;
-    bool has_filter = obj_to_ignore >= 0 && obj_to_ignore < (int)physics_body_ids.size();
-    IgnoreBodyFilter body_filter(has_filter ? physics_body_ids[obj_to_ignore] : JPH::BodyID());
+    IgnoreBodyFilter body_filter(
+        ignore_index_1 >= 0 && ignore_index_1 < (int)physics_body_ids.size() ? physics_body_ids[ignore_index_1] : JPH::BodyID(), 
+        ignore_index_2 >= 0 && ignore_index_2 < (int)physics_body_ids.size() ? physics_body_ids[ignore_index_2] : JPH::BodyID() 
+    );
 
     const float golden_ratio = 1.618f;
     for (int i = 0; i < num_rays; i++) {
@@ -176,7 +179,8 @@ std::vector<glm::vec3> PhysicsHandle::find_reflection_points(glm::vec3 origin, i
         JPH::RayCastResult hit;
         if (query.CastRay(ray, hit, JPH::BroadPhaseLayerFilter(), JPH::ObjectLayerFilter(), body_filter)) {
             JPH::RVec3 hit_pos = ray.GetPointOnRay(hit.mFraction);
-            points.push_back(glm::vec3(hit_pos.GetX(), hit_pos.GetY(), hit_pos.GetZ()));
+            glm::vec3 point = glm::vec3(hit_pos.GetX(), hit_pos.GetY(), hit_pos.GetZ()) - 0.01f * ray_dir;
+            points.push_back(point);
         }
     }
     return points;
@@ -184,8 +188,8 @@ std::vector<glm::vec3> PhysicsHandle::find_reflection_points(glm::vec3 origin, i
 
 // MODIFIES: this, objects
 // EFFECTS: Updates the physics engine, then sets each objects properties using the updated values
-//     Returns positions of any bullet collisions that occurred this frame
-std::vector<glm::vec3> PhysicsHandle::update(float delta_time, const std::vector<VulkanObject*> objects) {
+//     Returns collision properties of any collisions that occurred this frame
+std::vector<CollisionProperties> PhysicsHandle::update(float delta_time, const std::vector<VulkanObject*> objects) {
     physics_system->Update(delta_time, 5, physics_temp_allocator, physics_job_system);
 
     for (size_t i = 0; i < objects.size(); i++) {
@@ -199,10 +203,21 @@ std::vector<glm::vec3> PhysicsHandle::update(float delta_time, const std::vector
         objects[i]->properties.position = glm::vec3(pos.GetX(), pos.GetY(), pos.GetZ());
     }
 
-    std::vector<glm::vec3> collisions;
-    {
-        std::lock_guard<std::mutex> lock(bullet_contact_listener.mutex);
-        collisions.swap(bullet_contact_listener.collision_positions);
+    std::vector<CollisionProperties> collisions;
+    std::lock_guard<std::mutex> lock(contact_listener.mutex);
+    for (const auto& new_sound_wave : contact_listener.new_sound_waves) {
+        CollisionProperties collision_event;
+
+        collision_event.position = new_sound_wave.position;
+
+        int index_1 = new_sound_wave.body_1.GetIndexAndSequenceNumber();
+        int index_2 = new_sound_wave.body_2.GetIndexAndSequenceNumber();
+        collision_event.ignore_index_1 = body_id_to_index.count(index_1) ? body_id_to_index[index_1] : -1;
+        collision_event.ignore_index_2 = body_id_to_index.count(index_2) ? body_id_to_index[index_2] : -1;
+        
+        collisions.push_back(collision_event);
     }
+    contact_listener.new_sound_waves.clear();
+
     return collisions;
 }
