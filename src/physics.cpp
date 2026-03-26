@@ -190,7 +190,7 @@ std::vector<glm::vec3> PhysicsHandle::find_reflection_points(glm::vec3 origin, i
 // EFFECTS: Updates the physics engine, then sets each objects properties using the updated values
 //     Returns collision properties of any collisions that occurred this frame
 std::vector<CollisionProperties> PhysicsHandle::update(float delta_time, const std::vector<VulkanObject*> objects) {
-    physics_system->Update(delta_time, 5, physics_temp_allocator, physics_job_system);
+    physics_system->Update(delta_time, step_size, physics_temp_allocator, physics_job_system);
 
     for (size_t i = 0; i < objects.size(); i++) {
         if (!objects[i]->properties.physics_enabled) continue;
@@ -206,16 +206,22 @@ std::vector<CollisionProperties> PhysicsHandle::update(float delta_time, const s
     std::vector<CollisionProperties> collisions;
     std::lock_guard<std::mutex> lock(contact_listener.mutex);
     for (const auto& new_sound_wave : contact_listener.new_sound_waves) {
-        CollisionProperties collision_event;
+        CollisionProperties collision_properties;
 
-        collision_event.position = new_sound_wave.position;
+        collision_properties.position = new_sound_wave.position;
 
         int index_1 = new_sound_wave.body_1.GetIndexAndSequenceNumber();
         int index_2 = new_sound_wave.body_2.GetIndexAndSequenceNumber();
-        collision_event.ignore_index_1 = body_id_to_index.count(index_1) ? body_id_to_index[index_1] : -1;
-        collision_event.ignore_index_2 = body_id_to_index.count(index_2) ? body_id_to_index[index_2] : -1;
-        
-        collisions.push_back(collision_event);
+        collision_properties.ignore_index_1 = 
+            (body_id_to_index.count(index_1) && body_interface->GetMotionType(new_sound_wave.body_1) == JPH::EMotionType::Dynamic) 
+            ? body_id_to_index[index_1] : -1;
+        collision_properties.ignore_index_2 = 
+            (body_id_to_index.count(index_2) && body_interface->GetMotionType(new_sound_wave.body_2) == JPH::EMotionType::Dynamic) 
+            ? body_id_to_index[index_2] : -1;
+
+        collision_properties.amplitude = new_sound_wave.amplitude;
+
+        collisions.push_back(collision_properties);
     }
     contact_listener.new_sound_waves.clear();
 

@@ -17,6 +17,8 @@ layout(binding = 3) buffer StorageBufferObject {
     mat4 model[16];
     vec4 sound_waves[1024];
     float amplitudes[1024];
+    int ignore_object_1[1024];
+    int ignore_object_2[1024];
     int visible[16];
     int emitting[16];
     int selected_object_index;
@@ -138,7 +140,10 @@ void main() {
         float contribution = clamp(2.0 / (total_path * total_path), 0.0, decay_val) * ssbo.amplitudes[i];
         if (contribution < 0.001) continue;
 
-        if (is_ray_obstructed(wave_origin, hit_point)) continue;
+        bool propagates_through_object = 
+            ssbo.ignore_object_1[i] >= 0 && object_id == ssbo.ignore_object_1[i] ||
+            ssbo.ignore_object_2[i] >= 0 && object_id == ssbo.ignore_object_2[i];
+        if (!propagates_through_object && is_ray_obstructed(wave_origin, hit_point)) continue;
 
         intensity += contribution;
     }

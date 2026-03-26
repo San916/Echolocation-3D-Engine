@@ -413,13 +413,16 @@ VulkanHandle::~VulkanHandle() {
 //     Creates a sound wave at position, then fetches ahead of time sound_wave_branching_factor reflections
 //     These sound waves start at radius equal to the negative of the distance between sound wave origin and reflected wave origin,
 //         so they 'start' propagating when the sound wave reaches the reflected point
-void VulkanHandle::spawn_wave(glm::vec3 position, int ignore_index_1, int ignore_index_2) {
-    if (sound_waves.size() < MAX_SOUND_WAVES) sound_waves.push_back({glm::vec4(position, 0.0f), 1.0f});
+void VulkanHandle::spawn_wave(glm::vec3 position, int ignore_index_1, int ignore_index_2, float amplitude) {
+    if (sound_waves.size() < MAX_SOUND_WAVES) {
+        sound_waves.push_back({glm::vec4(position, 0.0f), 0.0f, ignore_index_1, ignore_index_2});
+    }
 
-    std::vector<glm::vec3> reflections = physics_handle->find_reflection_points(position, 8, 20.0f, ignore_index_1, ignore_index_2);
+    std::vector<glm::vec3> reflections = physics_handle->find_reflection_points(position, sound_wave_branching_factor, 20.0f, ignore_index_1, ignore_index_2);
     for (const glm::vec3& reflection : reflections) {
         if (sound_waves.size() >= MAX_SOUND_WAVES) break;
-        sound_waves.push_back({glm::vec4(reflection, -glm::distance(position, reflection)), 0.3f});
+        float delay = glm::distance(position, reflection);
+        sound_waves.push_back({glm::vec4(reflection, -glm::distance(position, reflection)), amplitude, ignore_index_1, ignore_index_2});
     }
 };
 
@@ -494,14 +497,14 @@ void VulkanHandle::run() {
             if (!obj->properties.emitting) continue;
             obj->properties.emit_cooldown -= delta_time;
             if (obj->properties.emit_cooldown <= 0.0f) {
-                spawn_wave(obj->properties.position, static_cast<int>(i));
+                spawn_wave(obj->properties.position, static_cast<int>(i), -1, 1.0f);
                 obj->properties.emit_cooldown = obj->properties.emit_interval;
             }
         }
 
         bool q_pressed = glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS;
         if (q_pressed && !q_held_down) {
-            spawn_wave(camera_position);
+            spawn_wave(camera_position, -1, -1, 1.0f);
         }
         q_held_down = q_pressed;
 
@@ -515,7 +518,7 @@ void VulkanHandle::run() {
 
         std::vector<CollisionProperties> collisions = physics_handle->update(delta_time / 2.0f, objects);
         for (const CollisionProperties& collision : collisions) {
-            spawn_wave(collision.position, collision.ignore_index_1, collision.ignore_index_2);
+            spawn_wave(collision.position, collision.ignore_index_1, collision.ignore_index_2, collision.amplitude);
         }
 
         draw_frame();

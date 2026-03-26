@@ -17,12 +17,16 @@ typedef struct ObjectProperties ObjectProperties;
 struct SoundWave {
     glm::vec4 data;
     float amplitude;
+    int ignore_object_1;
+    int ignore_object_2;
 };
 
 struct StorageBufferObject {
     glm::mat4 model[MAX_OBJECTS];
     glm::vec4 sound_waves[MAX_SOUND_WAVES];
     float amplitudes[MAX_SOUND_WAVES];
+    int ignore_object_1[MAX_SOUND_WAVES];
+    int ignore_object_2[MAX_SOUND_WAVES];
     int visible[MAX_OBJECTS];
     int emitting[MAX_OBJECTS];
     int selected_object_index = -1;

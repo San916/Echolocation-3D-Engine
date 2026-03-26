@@ -12,6 +12,8 @@ layout(binding = 2) readonly buffer StorageBufferObject {
     mat4 model[16];
     vec4 sound_waves[1024];
     float amplitudes[1024];
+    int ignore_object_1[1024];
+    int ignore_object_2[1024];
     int visible[16];
     int emitting[16];
     int selected_object_index;

@@ -70,11 +70,14 @@ public:
 };
 
 class ObjContactListener : public JPH::ContactListener {
+private:
+    float kinetic_energy_to_amplitude = 0.0001f;
 public:
     struct ContactEvent {
         glm::vec3 position;
         JPH::BodyID body_1;
         JPH::BodyID body_2;
+        float amplitude;
     };
 
     std::mutex mutex;
@@ -87,7 +90,7 @@ public:
     ) override {
         JPH::Vec3 rel_vel = body_1.GetLinearVelocity() - body_2.GetLinearVelocity();
         float impact_speed = abs(rel_vel.Dot(manifold.mWorldSpaceNormal));
-        if (impact_speed < 2.0f) return;
+        if (impact_speed < 1.0f) return;
 
         JPH::Vec3 pos = manifold.GetWorldSpaceContactPointOn1(0);
         JPH::Vec3 normal = manifold.mWorldSpaceNormal;
@@ -96,8 +99,16 @@ public:
         if (!body_1.IsStatic()) new_origin += 0.01f * glm::vec3(normal.GetX(), normal.GetY(), normal.GetZ());
         else if (!body_2.IsStatic()) new_origin -= 0.01f * glm::vec3(normal.GetX(), normal.GetY(), normal.GetZ());
 
+        float speed_1 = body_1.GetLinearVelocity().Length();
+        float speed_2 = body_2.GetLinearVelocity().Length();
+        float kinetic_energy_1 = body_1.IsStatic() ? 0.0f : 0.5f / body_1.GetMotionProperties()->GetInverseMass() * speed_1 * speed_1;
+        float kinetic_energy_2 = body_2.IsStatic() ? 0.0f : 0.5f / body_2.GetMotionProperties()->GetInverseMass() * speed_2 * speed_2;
+        float restitution = (body_1.GetRestitution() + body_2.GetRestitution()) / 2.0f;
+        float energy_lost = (kinetic_energy_1 + kinetic_energy_2) * (1 - restitution * restitution);
+        energy_lost = energy_lost * kinetic_energy_to_amplitude;
+
         std::lock_guard<std::mutex> lock(mutex);
-        new_sound_waves.push_back({new_origin, body_1.GetID(), body_2.GetID()});
+        new_sound_waves.push_back({new_origin, body_1.GetID(), body_2.GetID(), energy_lost});
     }
 };
 
@@ -114,10 +125,12 @@ struct CollisionProperties {
     glm::vec3 position;
     int ignore_index_1 = -1;
     int ignore_index_2 = -1;
+    float amplitude = 0.0f;
 };
 
 class PhysicsHandle {
 private:
+    const int step_size = 2;
     const JPH::uint physics_max_bodies = 1024;
     const JPH::uint physics_num_mutexes = 0;
     const JPH::uint physics_max_body_pairs = 1024;
